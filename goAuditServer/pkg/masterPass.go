@@ -1,4 +1,4 @@
-package serverinternal
+package serverfunc
 
 import (
 	"database/sql"
@@ -14,7 +14,7 @@ var (
 	mu              sync.RWMutex
 )
 
-func setMasterPassword(userID string, password string) error {
+func SetMasterPassword(userID string, password string) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func VerifyMasterPassword(userID string, password string) bool {
 	return bcrypt.CompareHashAndPassword(hashedPassword, []byte(password)) == nil
 }
 
-func saveMasterPasswords() error {
+func SaveMasterPasswords() error {
 	mu.RLock()
 	defer mu.RUnlock()
 
@@ -55,7 +55,7 @@ func saveMasterPasswords() error {
 	return encoder.Encode(masterPasswords)
 }
 
-func loadMasterPasswords() error {
+func LoadMasterPasswords() error {
 	// Load from encrypted file or secure storage
 	file, err := os.Open("master_passwords.enc")
 	if err != nil {
@@ -67,7 +67,7 @@ func loadMasterPasswords() error {
 	return decoder.Decode(&masterPasswords)
 }
 
-func syncMasterPasswords() error {
+func SyncMasterPasswords() error {
 	var db *sql.DB
 	mu.RLock()
 	defer mu.RUnlock()

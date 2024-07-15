@@ -1,15 +1,17 @@
-package serverinternal
+package serverfunc
 
 import (
 	// Standard Library
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	// Fyne Imports
 
 	// External Imports
 	"github.com/go-ldap/ldap/v3"
+	"github.com/joho/godotenv"
 	// Internal Imports
 )
 
@@ -24,7 +26,23 @@ type LDAPConnection struct {
 }
 
 // Connect to the LDAP server using the provided username and password
-func ConnectToAdServer(username, password, server, domain, ou string) (*LDAPConnection, error) {
+func ConnectToAdServer(username, password string) (*LDAPConnection, error) {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Error loading.env file")
+	}
+	server := os.Getenv("LDAP_SERVER")
+	domain := os.Getenv("LDAP_DOMAIN")
+	ou := os.Getenv("LDAP_OU")
+	if ou == "" {
+		log.Fatal("LDAP_OU environment variable is not set")
+	}
+	if server == "" {
+		log.Fatal("LDAP_SERVER environment variable is not set")
+	}
+	if domain == "" {
+		log.Fatal("LDAP_DOMAIN environment variable is not set")
+	}
 	properUsername := strings.ToUpper(username)
 	ldapServer := fmt.Sprintf("ldaps://%s.%s:636", server, domain) //Using LDAPS
 	log.Println("Connecting to:", ldapServer)

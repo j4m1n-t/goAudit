@@ -1,11 +1,18 @@
 package internal
 
 import (
-	"context"
+    // Standard library
+    "fmt"
 
+
+    // Fyne Imports
+
+    // External Imports
 	"golang.org/x/crypto/bcrypt"
 
-	serverSide "github.com/j4m1n-t/goAudit/goAuditServer/serverinternal"
+    // Internal Imports
+	serverSide "github.com/j4m1n-t/goAudit/goAuditServer/pkg"
+  //  CRUD "github.com/j4m1n-t/goAudit/goAuditServer/pkg/CRUD"
 )
 
 type User struct {
@@ -16,8 +23,14 @@ type User struct {
 
 // credentials storing similar to bitwarden
 
-func setup(ctx context.Context) {
-
+func setup() {
+    print("What is your username?  ")
+    var userID string
+    fmt.Scanln(&userID)
+    print("What is your password?  ")
+    var pw string
+    fmt.Scanln(&pw)
+    serverSide.SetMasterPassword(userID, pw)
 }
 
 func login(user User, masterPassword string) bool {
@@ -26,18 +39,20 @@ func login(user User, masterPassword string) bool {
 }
 
 func getStoredMasterPasswordHash(user User) []byte {
-	// Retrieve the stored master password hash from a secure storage
-	// (e.g., a database, a key vault, or a file)
+    // Retrieve hashed master password from secure storage
+    // This is a simplified example; use proper secure storage in practice
+    return []byte("hashed_master_password")
 }
 
 func promptMasterPassword() string {
 	// Prompt the user for their master password
 	// and return it as a string
+    return "your_master_password_here"
 }
 
 func displayCredentials(user User, encryptionKey []byte) {
-	// Decrypt and display credentials using the provided encryption key
-	// (e.g., decrypt JSON files, decrypt password fields, etc.)
+    //CRUD.GetCredentials()
+
 }
 
 func accessCredentialsTab(user User) {
@@ -49,7 +64,7 @@ func accessCredentialsTab(user User) {
 	// Prompt for master password
 	masterPassword := promptMasterPassword()
 
-	if !serverSide.VerifyMasterPassword(user.ID, masterPassword) {
+	if !serverSide.VerifyMasterPassword(user.Username, masterPassword) {
 		// Display error and deny access
 		return
 	}
@@ -62,6 +77,7 @@ func accessCredentialsTab(user User) {
 }
 
 func deriveKey(masterPassword string) []byte {
-	// Use a key derivation function like Argon2 or PBKDF2
-	// to derive an encryption key from the master password
+    argon2 := make([]byte, len(masterPassword))
+    copy(argon2, masterPassword)
+    return argon2
 }
