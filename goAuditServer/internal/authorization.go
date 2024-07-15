@@ -1,4 +1,4 @@
-package internal
+package serverinternal
 
 import (
 	// Standard Library
