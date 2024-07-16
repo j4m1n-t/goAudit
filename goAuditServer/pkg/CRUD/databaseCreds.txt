@@ -1,0 +1,105 @@
+package crud
+
+import (
+	// Standard Library
+	"database/sql"
+	"fmt"
+	"log"
+	"time"
+
+	// External Imports
+
+	// Internal Imports
+	serverSide "github.com/j4m1n-t/goAudit/goAuditServer/pkg"
+)
+
+// Initialize database connection
+func InitDBCred() error {
+	SQLSettings := serverSide.LoadSQLSettings()
+	userName := SQLSettings.User
+	password := SQLSettings.Password
+	dataBase := SQLSettings.Database //May need to be changed for specific applications
+	var err error
+	dbCredentials, err = sql.Open("postgres", fmt.Sprintf("user=%s dbname=%s sslmode=disable password=%s", userName, dataBase, password))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err = dbCredentials.Ping(); err != nil {
+		return err
+	}
+	log.Println("Database connection established")
+	return nil
+
+}
+
+// Credentials Section
+// Create a credential and place it in the database
+func CreateCredential(db *sql.DB) error {
+	credential := Credentials{Username: "admin", Password: "password"}
+	query := `INSERT INTO credentials (username, password, id) VALUES ($1, $2, $3)`
+	_, err := dbCredentials.Exec(query, &credential.Username, &credential.Password, &credential.ID)
+	if err != nil {
+		log.Println("Error inserting credential. ", err)
+	}
+	return nil
+}
+
+// Get all credentials from the database for a given user
+func GetCredentials() ([]Credentials, error) {
+	var credentials []Credentials
+	rows, err := dbCredentials.Query("SELECT id, username, password, role FROM credentials")
+	if err != nil {
+		log.Println("Error retrieving credentials.", err)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var credential Credentials
+		var userName string
+		err := rows.Scan(&credential.ID, &credential.User, &credential.Password, userName)
+		if err != nil {
+			log.Printf("Error retrieving credential. %s", err)
+			return nil, err
+		}
+		credentials = append(credentials, credential)
+	}
+	return credentials, nil
+}
+
+// Get a specific credential from the database for the given user
+func GetCredential(id int) (Credentials, error) {
+	var credential Credentials
+	var userName string
+	query := `SELECT id, username, password FROM credentials WHERE id = $1"`
+	err := dbCredentials.QueryRow(query, id).Scan(&credential.ID, &credential.User, &credential.Password)
+	if err != nil {
+		log.Printf("Error retrieving credential. %s", err)
+		return Credentials{}, err
+	}
+	credential.User = userName
+	return credential, nil
+}
+
+// Update a credential in the database for the given user
+func UpdateCredential(credential Credentials) (Credentials, error) {
+	query := `UPDATE credentials SET username=$1, password=$2 WHERE id=$3 RETURNING id`
+	err := dbCredentials.QueryRow(query, &credential.Username, &credential.Password, time.Now(), &credential.ID).Scan(&credential.Username, &credential.Password, &credential.ID)
+	if err != nil {
+		log.Printf("Error updating credential. %s", err)
+		return Credentials{}, err
+	}
+	return credential, nil
+}
+
+// Delete a credential from the database for the given user
+func DeleteCredential(id int) error {
+	query := `DELETE FROM notes WHERE id=$1`
+	_, err := dbCredentials.Exec(query, id)
+	if err != nil {
+		log.Printf("Error deleting credentials. %s", err)
+		return err
+	}
+	return nil
+
+}

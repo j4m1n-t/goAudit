@@ -2,6 +2,7 @@ package serverfunc
 
 import (
 	// Standard Library
+
 	"fmt"
 	"log"
 	"os"
@@ -29,39 +30,67 @@ type LDAPConnection struct {
 func ConnectToAdServer(username, password string) (*LDAPConnection, error) {
 	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatal("Error loading.env file")
+		return nil, fmt.Errorf("error loading .env file: %w", err)
 	}
+
 	server := os.Getenv("LDAP_SERVER")
 	domain := os.Getenv("LDAP_DOMAIN")
 	ou := os.Getenv("LDAP_OU")
-	if ou == "" {
-		log.Fatal("LDAP_OU environment variable is not set")
+	readonlyPassword := os.Getenv("LDAP_READONLY_PASSWORD")
+
+	if server == "" || domain == "" || ou == "" || readonlyPassword == "" {
+		return nil, fmt.Errorf("one or more required environment variables are not set")
 	}
-	if server == "" {
-		log.Fatal("LDAP_SERVER environment variable is not set")
-	}
-	if domain == "" {
-		log.Fatal("LDAP_DOMAIN environment variable is not set")
-	}
-	properUsername := strings.ToUpper(username)
-	ldapServer := fmt.Sprintf("ldaps://%s.%s:636", server, domain) //Using LDAPS
+
+	ldapServer := fmt.Sprintf("ldaps://%s.%s:636", server, domain)
 	log.Println("Connecting to:", ldapServer)
+
 	l, err := ldap.DialURL(ldapServer)
 	if err != nil {
-		log.Printf("Failed to dial LDAPserver %s: %v", ldapServer, err)
 		return nil, fmt.Errorf("failed to dial LDAP server: %w", err)
 	}
 
-	bDN := OUwithDomain(ou, domain)
-	bindDN := fmt.Sprintf("cn=%s,%s", properUsername, bDN) // bDN should allow for usuage of multiple organizational units
-	err = l.Bind(bindDN, password)
+	// Construct the bindDN
+	domainParts := strings.Split(domain, ".")
+	dcString := strings.Join(domainParts, ",DC=")
+	bindDN := fmt.Sprintf("CN=readonly,CN=Users,DC=%s", strings.Replace(domain, ".", ",DC=", -1))
+
+	log.Printf("Binding as read-only user: %s", bindDN)
+	err = l.Bind(bindDN, readonlyPassword)
 	if err != nil {
-		l.Close()
-		return nil, fmt.Errorf("failed to bind to LDAP server: %w", err)
+		return nil, fmt.Errorf("failed to bind to LDAP server as read-only: %w", err)
 	}
 
-	// Does the OU need to be returned and added to the structure?
+	// Search for user
+	searchFilter := fmt.Sprintf("(&(objectClass=user)(sAMAccountName=%s))", ldap.EscapeFilter(username))
+	searchBase := fmt.Sprintf("OU=%s,DC=%s", ou, dcString)
+	searchRequest := ldap.NewSearchRequest(
+		searchBase,
+		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		searchFilter,
+		[]string{"distinguishedName"},
+		nil,
+	)
+	log.Printf("Searching for user with filter: %s in base: %s", searchFilter, searchBase)
+	sr, err := l.Search(searchRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for user: %w", err)
+	}
+	if len(sr.Entries) != 1 {
+		return nil, fmt.Errorf("user not found or too many entries returned")
+	}
 
+	userDN := sr.Entries[0].DN
+	log.Printf("Found user: %s", userDN)
+
+	// Now bind as the user
+	log.Printf("Attempting to bind as user: %s", userDN)
+	err = l.Bind(userDN, password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind as user: %w", err)
+	}
+
+	log.Println("Successfully authenticated user")
 	return &LDAPConnection{
 		Conn:     l,
 		Username: username,
@@ -69,6 +98,12 @@ func ConnectToAdServer(username, password string) (*LDAPConnection, error) {
 		Server:   server,
 		Domain:   domain,
 	}, nil
+}
+
+// Logout as current user
+func LogoutUser(c *LDAPConnection) error {
+	log.Println("Logging out as:", c.Username)
+	return c.Conn.Close()
 }
 
 // Formats Domain to OU style for ldap
@@ -90,5 +125,6 @@ func IsProperDomain(domain string) bool {
 // Combine OU and Domain to create a Base DN for search
 func OUwithDomain(ou string, domain string) string {
 	bdn := fmt.Sprintf("OU=%s,%s", ou, DomaintoOU(domain))
-	return strings.ToLower(bdn)
+	return bdn
 }
+
