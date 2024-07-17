@@ -21,30 +21,30 @@ type Notes struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	UserID    []Users   `json:"-"`
-	Username      []Users   `json:"username"`
+	Username  []Users   `json:"username"`
 	Open      bool      `json:"open"`
 }
 type Users struct {
-    ID        int       `json:"id"`
-    Username  string    `json:"username"`
-    UserID    int       `json:"user_id"`
-    Email     string    `json:"email"`
-    Status    string    `json:"status"`
-    CreatedAt time.Time `json:"created_at"`
-    UpdatedAt time.Time `json:"updated_at"`
-    LastLogin time.Time `json:"last_login"`
+	ID        int       `json:"id"`
+	Username  string    `json:"username"`
+	UserID    int       `json:"user_id"`
+	Email     string    `json:"email"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	LastLogin time.Time `json:"last_login"`
 }
 
 // Credential Structure
 type Credentials struct {
 	ID         int     `json:"id"`
-	Username   string  `json:"username"`
+	LoginName  string  `json:"login_name"`
 	Password   string  `json:"password"`
 	RememberMe bool    `json:"remember_me"`
 	Site       string  `json:"site"`
 	Program    string  `json:"program"`
 	UserID     []Users `json:"-"`
-	Username       []Users `json:"username"`
+	Username   []Users `json:"username"`
 }
 
 // Audit Structure
@@ -61,7 +61,7 @@ type Audits struct {
 	CompletedAt     time.Time `json:"completed_at"`
 	Completed       bool      `json:"completed"`
 	UserID          []Users   `json:"-"`
-	Username            []Users   `json:"username"`
+	Username        []Users   `json:"username"`
 	AdditionalUsers []string  `json:"additional_users"`
 	Firm            string    `json:"firm"`
 }
@@ -77,7 +77,7 @@ type Tasks struct {
 	DueDate     time.Time `json:"due_date"`
 	Completed   bool      `json:"completed"`
 	UserID      []Users   `json:"-"`
-	Username        []Users   `json:"username"`
+	Username    []Users   `json:"username"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -92,7 +92,7 @@ type CRM struct {
 	Company    string    `json:"company"`
 	Notes      []string  `json:"notes"`
 	UserID     []Users   `json:"-"`
-	Username       []Users   `json:"username"`
+	Username   []Users   `json:"username"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	Tasks      []Tasks   `json:"tasks"`
