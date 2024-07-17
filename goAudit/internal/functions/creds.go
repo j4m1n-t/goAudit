@@ -21,7 +21,7 @@ type User struct {
 
 // credentials storing similar to bitwarden
 
-func setup() {
+func MasterPasswordSetup() {
 	print("What is your username?  ")
 	var userID string
 	fmt.Scanln(&userID)
@@ -31,36 +31,36 @@ func setup() {
 	myAuth.SetMasterPassword(userID, pw)
 }
 
-func login(user User, masterPassword string) bool {
-	storedHash := getStoredMasterPasswordHash(user)
+func MasterPasswordLogin(user User, masterPassword string) bool {
+	storedHash := GetStoredMasterPasswordHash(user)
 	return bcrypt.CompareHashAndPassword(storedHash, []byte(masterPassword)) == nil
 }
 
-func getStoredMasterPasswordHash(user User) []byte {
+func GetStoredMasterPasswordHash(user User) []byte {
 	// Retrieve hashed master password from secure storage
 	// This is a simplified example; use proper secure storage in practice
 	return []byte("hashed_master_password")
 }
 
-func promptMasterPassword() string {
+func PromptMasterPassword() string {
 	// Prompt the user for their master password
 	// and return it as a string
 	return "your_master_password_here"
 }
 
-func displayCredentials(user User, encryptionKey []byte) {
+func DisplayCredentials(user User, encryptionKey []byte) {
 	//CRUD.GetCredentials()
 
 }
 
-func accessCredentialsTab(user User) {
+func AccessCredentialsTab(user User) {
 	if !user.IsAuthenticated {
 		// Redirect to LDAP login
 		return
 	}
 
 	// Prompt for master password
-	masterPassword := promptMasterPassword()
+	masterPassword := PromptMasterPassword()
 
 	if !myAuth.VerifyMasterPassword(user.Username, masterPassword) {
 		// Display error and deny access
@@ -68,13 +68,13 @@ func accessCredentialsTab(user User) {
 	}
 
 	// Derive encryption key from master password
-	encryptionKey := deriveKey(masterPassword)
+	encryptionKey := DeriveKey(masterPassword)
 
 	// Use encryptionKey to decrypt and display credentials
-	displayCredentials(user, encryptionKey)
+	DisplayCredentials(user, encryptionKey)
 }
 
-func deriveKey(masterPassword string) []byte {
+func DeriveKey(masterPassword string) []byte {
 	argon2 := make([]byte, len(masterPassword))
 	copy(argon2, masterPassword)
 	return argon2

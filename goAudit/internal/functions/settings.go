@@ -52,12 +52,3 @@ func LoadSQLSettings() SQLSettings {
 		Port:     os.Getenv("SQL_PORT"),
 	}
 }
-
-func SavegoAuditServerSettings(inUse bool, server string) error {
-	inUseStr := "false"
-	if inUse {
-		inUseStr = "true"
-	}
-	envContent := fmt.Sprintf("goAudit_Server_INUSE=%s\ngoAudit_SERVER=%s\n", inUseStr, server)
-	return os.WriteFile(".env", []byte(envContent), 0644)
-}

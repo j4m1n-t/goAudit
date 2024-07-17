@@ -10,6 +10,21 @@ import (
 	serverSide "github.com/j4m1n-t/goAudit/goAuditServer/pkg"
 )
 
+// Generic represents a generic data structure
+// Replace this with specific structs for Audits, Tasks, CRM, and Credentials
+type Generic struct {
+	ID        int       `json:"id"`
+	// Add other fields specific to each type
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UserID    int       `json:"-"`
+	User      string    `json:"user"`
+}
+
+var (
+	dbPool *pgxpool.Pool
+)
+
 func InitDB() error {
 	SQLSettings := serverSide.LoadSQLSettings()
 
