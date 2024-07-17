@@ -20,10 +20,10 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
-	crud "github.com/j4m1n-t/goAudit/goAudit/internal/CRUD"
-	myAuth "github.com/j4m1n-t/goAudit/goAudit/internal/authentication"
-	myFunctions "github.com/j4m1n-t/goAudit/goAudit/internal/functions"
-	myLayout "github.com/j4m1n-t/goAudit/goAudit/internal/layouts"
+	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
+	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	myFunctions "github.com/j4m1n-t/goAudit/internal/functions"
+	myLayout "github.com/j4m1n-t/goAudit/internal/layouts"
 )
 
 // Theme structure

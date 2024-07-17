@@ -13,7 +13,7 @@ import (
 	// External Imports
 
 	// Internal Imports
-	crud "github.com/j4m1n-t/goAudit/goAudit/internal/CRUD"
+	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
 )
 
 var notesList *widget.List
