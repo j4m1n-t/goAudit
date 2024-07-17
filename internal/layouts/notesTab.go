@@ -86,27 +86,15 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 
 	titleEntry = widget.NewEntry()
 	titleEntry.SetPlaceHolder("Enter title")
-	titleEntry.Resize(fyne.NewSize(400, 40))
 
 	contentEntry = widget.NewMultiLineEntry()
 	contentEntry.SetPlaceHolder("Enter content")
 	contentEntry.Wrapping = fyne.TextWrapWord
-	contentEntry.Resize(fyne.NewSize(400, 300))
 
 	if note != nil {
 		titleEntry.SetText(note.Title)
 		contentEntry.SetText(note.Content)
 	}
-
-	content := container.NewVBox(
-		widget.NewLabel("Title"),
-		titleEntry,
-		widget.NewLabel("Content"),
-		contentEntry,
-	)
-
-	scrollContainer := container.NewVScroll(content)
-	scrollContainer.Resize(fyne.NewSize(500, 400))
 
 	saveButton := widget.NewButton("Save", func() {
 		if note == nil {
@@ -133,9 +121,28 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 	})
 
 	buttons := container.NewHBox(saveButton)
-	dialogContent := container.NewVBox(scrollContainer, buttons)
 
-	customDialog = dialog.NewCustom("Note", "Cancel", dialogContent, window)
+	content := container.NewBorder(
+		container.NewVBox(
+			widget.NewLabel("Title"),
+			titleEntry,
+		),
+		nil,
+		nil,
+		nil,
+		container.NewVBox(
+			widget.NewLabel("Content"),
+			contentEntry,
+		),
+	)
+
+	// Wrap content in a padded container
+	paddedContent := container.NewPadded(content)
+
+	// Create a container with buttons at the bottom
+	mainContainer := container.NewBorder(nil, buttons, nil, nil, paddedContent)
+
+	customDialog = dialog.NewCustom("Note", "Cancel", mainContainer, window)
 	customDialog.Resize(fyne.NewSize(600, 500))
 
 	customDialog.SetOnClosed(func() {
@@ -146,6 +153,7 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 
 	customDialog.Show()
 }
+
 func performSearch(searchTerm string, window fyne.Window) {
 	searchResults, err := crud.SearchNotes(searchTerm)
 	if err != nil {

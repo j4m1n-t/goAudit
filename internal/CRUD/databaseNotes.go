@@ -20,21 +20,31 @@ type Notes struct {
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	UserID    int       `json:"-"`
-	User      string    `json:"user"`
+	UserID    []Users   `json:"-"`
+	Username      []Users   `json:"username"`
 	Open      bool      `json:"open"`
+}
+type Users struct {
+    ID        int       `json:"id"`
+    Username  string    `json:"username"`
+    UserID    int       `json:"user_id"`
+    Email     string    `json:"email"`
+    Status    string    `json:"status"`
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+    LastLogin time.Time `json:"last_login"`
 }
 
 // Credential Structure
 type Credentials struct {
-	ID         int    `json:"id"`
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	RememberMe bool   `json:"remember_me"`
-	Site       string `json:"site"`
-	Program    string `json:"program"`
-	UserID     int    `json:"-"`
-	User       string `json:"user"`
+	ID         int     `json:"id"`
+	Username   string  `json:"username"`
+	Password   string  `json:"password"`
+	RememberMe bool    `json:"remember_me"`
+	Site       string  `json:"site"`
+	Program    string  `json:"program"`
+	UserID     []Users `json:"-"`
+	Username       []Users `json:"username"`
 }
 
 // Audit Structure
@@ -50,8 +60,8 @@ type Audits struct {
 	AssignedUser    string    `json:"assigned_user"`
 	CompletedAt     time.Time `json:"completed_at"`
 	Completed       bool      `json:"completed"`
-	UserID          int       `json:"-"`
-	User            string    `json:"user"`
+	UserID          []Users   `json:"-"`
+	Username            []Users   `json:"username"`
 	AdditionalUsers []string  `json:"additional_users"`
 	Firm            string    `json:"firm"`
 }
@@ -66,8 +76,8 @@ type Tasks struct {
 	Notes       string    `json:"notes"`
 	DueDate     time.Time `json:"due_date"`
 	Completed   bool      `json:"completed"`
-	UserID      int       `json:"-"`
-	User        string    `json:"user"`
+	UserID      []Users   `json:"-"`
+	Username        []Users   `json:"username"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -81,8 +91,8 @@ type CRM struct {
 	Phone      string    `json:"phone"`
 	Company    string    `json:"company"`
 	Notes      []string  `json:"notes"`
-	UserID     int       `json:"-"`
-	User       string    `json:"user"`
+	UserID     []Users   `json:"-"`
+	Username       []Users   `json:"username"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	Tasks      []Tasks   `json:"tasks"`
@@ -174,15 +184,16 @@ func EnsureNotesTableExists() error {
 
 // Put note in database and associate to the user
 func CreateNote(title, content string, userID int) (Notes, error) {
-	note := Notes{Title: title, Content: content, UserID: userID}
-	query := `INSERT INTO notes (title, content, user_id) 
-              VALUES ($1, $2, $3) 
-              RETURNING id, created_at, updated_at`
+	note := Notes{
+		Title:   title,
+		Content: content,
+		UserID:  []Users{{ID: userID}},
+		User:    []Users{{ID: userID}},
+	}
 
-	err := dbPool.QueryRow(context.Background(), query,
-		note.Title, note.Content, note.UserID).
+	query := `INSERT INTO notes (title, content, user_id) VALUES ($1, $2, $3) RETURNING id, created_at, updated_at`
+	err := dbPool.QueryRow(context.Background(), query, note.Title, note.Content, userID).
 		Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
-
 	if err != nil {
 		return Notes{}, err
 	}
@@ -194,52 +205,53 @@ func GetNotes() ([]Notes, error) {
 	if dbPool == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
-	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, 
-              notes.updated_at, notes.user_id, users.name 
+	query := `SELECT notes.id, notes.title, notes.content, notes.created_at,
+              notes.updated_at, notes.user_id, users.id, users.user, users.email
               FROM notes JOIN users ON notes.user_id = users.id`
-
 	rows, err := dbPool.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
 	var notes []Notes
 	for rows.Next() {
 		var note Notes
-		var userName string
+		var user Users
 		err := rows.Scan(&note.ID, &note.Title, &note.Content,
 			&note.CreatedAt, &note.UpdatedAt,
-			&note.UserID, &userName)
+			&user.UserID, &user.ID, &user.User, &user.Email)
 		if err != nil {
 			return nil, err
 		}
-		note.User = userName
+		note.UserID = []Users{user}
+		note.User = []Users{user}
 		notes = append(notes, note)
 	}
-
 	return notes, rows.Err()
 }
 
-// Get a specific note from the database for the given user
 func GetNote(id int) (Notes, error) {
 	var note Notes
-	var userName string
-	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, notes.user_id, users.name 
+	var user Users
+	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, 
+              notes.user_id, users.id, users.user, users.email
               FROM notes JOIN users ON notes.user_id = users.id WHERE notes.id = $1`
-	err := dbPool.QueryRow(context.Background(), query, id).Scan(&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt, &note.UserID, &userName)
+	err := dbPool.QueryRow(context.Background(), query, id).Scan(
+		&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt,
+		&user.UserID, &user.ID, &user.User, &user.Email)
 	if err != nil {
 		log.Printf("Error getting note. %s", err)
 		return Notes{}, err
 	}
-	note.User = userName
+	note.UserID = []Users{user}
+	note.User = []Users{user}
 	return note, nil
 }
 
-// Update a specific note for the given user
 func UpdateNote(note Notes) (Notes, error) {
 	query := `UPDATE notes SET title=$1, content=$2, updated_at=$3 WHERE id=$4 RETURNING id, created_at, updated_at`
-	err := dbPool.QueryRow(context.Background(), query, note.Title, note.Content, time.Now(), note.ID).Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
+	err := dbPool.QueryRow(context.Background(), query, note.Title, note.Content, time.Now(), note.ID).
+		Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
 	if err != nil {
 		log.Printf("Error updating note. %s", err)
 		return Notes{}, err
@@ -247,7 +259,6 @@ func UpdateNote(note Notes) (Notes, error) {
 	return note, nil
 }
 
-// Delete a specific note for the given user
 func DeleteNote(id int) error {
 	query := `DELETE FROM notes WHERE id=$1`
 	_, err := dbPool.Exec(context.Background(), query, id)
@@ -258,11 +269,11 @@ func DeleteNote(id int) error {
 	return nil
 }
 
-// Search notes by title or content using PostgreSQL's ILIKE operator
 func SearchNotes(searchTerm string) ([]Notes, error) {
 	var notes []Notes
-	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, notes.user_id, users.name 
-              FROM notes JOIN users ON notes.user_id = users.id 
+	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, 
+              notes.user_id, users.id, users.user, users.email
+              FROM notes JOIN users ON notes.user_id = users.id
               WHERE notes.title ILIKE $1 OR notes.content ILIKE $1`
 	rows, err := dbPool.Query(context.Background(), query, "%"+searchTerm+"%")
 	if err != nil {
@@ -270,16 +281,17 @@ func SearchNotes(searchTerm string) ([]Notes, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
 	for rows.Next() {
 		var note Notes
-		var userName string
-		err := rows.Scan(&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt, &note.UserID, &userName)
+		var user Users
+		err := rows.Scan(&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt,
+			&user.UserID, &user.ID, &user.User, &user.Email)
 		if err != nil {
 			log.Printf("Error scanning note. %s", err)
 			continue
 		}
-		note.User = userName
+		note.UserID = []Users{user}
+		note.User = []Users{user}
 		notes = append(notes, note)
 	}
 	return notes, nil
