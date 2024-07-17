@@ -3,7 +3,6 @@ package internal
 import (
 	//Standard Library Imports//
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -22,7 +21,7 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
-	serverSide "github.com/j4m1n-t/goAudit/goAuditServer/pkg"
+	myAuth "github.com/j4m1n-t/goAudit/goAudit/internal/authentication"
 )
 
 type AppConfig struct {
@@ -146,7 +145,7 @@ func ShowLDAPDialog(window fyne.Window) {
 	readonlyEntry.SetPlaceHolder("Read Only Password")
 
 	// Load the current LDAP settings
-	ldapSettings := serverSide.LoadLDAPSettings()
+	ldapSettings := LoadLDAPSettings()
 
 	// Set the current LDAP settings in the dialog fields
 	serverEntry.SetText(ldapSettings.Server)
@@ -186,7 +185,7 @@ func ShowLDAPDialog(window fyne.Window) {
 
 	// Create a save button
 	saveButton := widget.NewButton("Save", func() {
-		err := serverSide.SaveLDAPSettings(serverEntry.Text, domainEntry.Text, ouEntry.Text, readonlyEntry.Text)
+		err := SaveLDAPSettings(serverEntry.Text, domainEntry.Text, ouEntry.Text, readonlyEntry.Text)
 		if err != nil {
 			dialog.ShowError(err, window)
 			return
@@ -221,12 +220,17 @@ func ShowSQLDialog(window fyne.Window) {
 	dbEntry := widget.NewEntry()
 	dbEntry.SetPlaceHolder("Database Name")
 
+	portEntry := widget.NewEntry()
+	portEntry.SetPlaceHolder("Port Number")
+	portEntry.SetPlaceHolder("5432")
+
 	content := container.NewVBox(
 		widget.NewForm(
 			widget.NewFormItem("SQL Server", serverEntry),
 			widget.NewFormItem("SQL User", userEntry),
 			widget.NewFormItem("SQL Password", passEntry),
 			widget.NewFormItem("Database Name", dbEntry),
+			widget.NewFormItem("Port Number", portEntry),
 		),
 	)
 
@@ -240,7 +244,7 @@ func ShowSQLDialog(window fyne.Window) {
 
 	// Create a save button
 	saveButton := widget.NewButton("Save", func() {
-		err := serverSide.SaveSQLSettings(serverEntry.Text, userEntry.Text, passEntry.Text, dbEntry.Text)
+		err := SaveSQLSettings(serverEntry.Text, userEntry.Text, passEntry.Text, dbEntry.Text, portEntry.Text)
 		if err != nil {
 			dialog.ShowError(err, window)
 			return
@@ -261,73 +265,6 @@ func ShowSQLDialog(window fyne.Window) {
 	// Show the dialog
 	customDialog.Show()
 }
-func ShowgoAuditServerDialog(window fyne.Window) {
-	operationMode := widget.NewRadioGroup([]string{"Local Operation", "Server Operation"}, nil)
-	operationMode.SetSelected("Local Operation") // Default to local operation
-
-	serverEntry := widget.NewEntry()
-	serverEntry.SetPlaceHolder("goAudit Server")
-	serverEntry.Disable()
-
-	content := container.NewVBox(
-		widget.NewLabel("Select Operation Mode: "),
-		operationMode,
-		widget.NewForm(
-			widget.NewFormItem("goAudit Server", serverEntry),
-		),
-	)
-
-	// Change Server Entry Enable/Disable based on operation mode
-	operationMode.OnChanged = func(selected string) {
-		if selected == "Server Operation" {
-			serverEntry.Enable()
-		} else {
-			serverEntry.Disable()
-			serverEntry.SetText("")
-		}
-	}
-
-	// Create a custom dialog
-	customDialog := dialog.NewCustom("goAudit Server Settings", "Save", content, window)
-
-	// Add a cancel button
-	cancelButton := widget.NewButton("Cancel", func() {
-		customDialog.Hide()
-	})
-
-	// Create a save button
-	saveButton := widget.NewButton("Save", func() {
-		inUse := operationMode.Selected == "Server Operation"
-		server := serverEntry.Text
-
-		if inUse && server == "" {
-			dialog.ShowError(errors.New("goAudit server address is required for Server Operation"), window)
-			return
-		}
-
-		err := serverSide.SavegoAuditServerSettings(inUse, server)
-		if err != nil {
-			dialog.ShowError(err, window)
-			return
-		}
-
-		dialog.ShowInformation("Success", "goAudit configuration saved successfully", window)
-		customDialog.Hide()
-	})
-
-	// Create a container for buttons
-	buttons := container.NewHBox(cancelButton, saveButton)
-
-	// Set the buttons to the dialog
-	customDialog.SetButtons([]fyne.CanvasObject{buttons})
-
-	// Set a larger size for the dialog
-	customDialog.Resize(fyne.NewSize(400, 300))
-
-	// Show the dialog
-	customDialog.Show()
-}
-
 func UpdateMenuForUser(isAdmin bool, window fyne.Window) {
 	mainMenu := window.MainMenu()
 	settingsMenu := mainMenu.Items[1] // Assuming Settings is the first menu
@@ -337,8 +274,7 @@ func UpdateMenuForUser(isAdmin bool, window fyne.Window) {
 		if len(settingsMenu.Items) == 1 {
 			LDAPItem := fyne.NewMenuItem("LDAP Configuration", func() { ShowLDAPDialog(window) })
 			SQLItem := fyne.NewMenuItem("SQL Configuration", func() { ShowSQLDialog(window) })
-			goAuditServerItem := fyne.NewMenuItem("goAudit Server Configuration", func() { ShowgoAuditServerDialog(window) })
-			settingsMenu.Items = append(settingsMenu.Items, LDAPItem, SQLItem, goAuditServerItem)
+			settingsMenu.Items = append(settingsMenu.Items, LDAPItem, SQLItem)
 		}
 	} else {
 		// Remove Config item if it's there
@@ -350,7 +286,7 @@ func UpdateMenuForUser(isAdmin bool, window fyne.Window) {
 	window.SetMainMenu(mainMenu)
 }
 
-func CheckIfAdmin(conn *serverSide.LDAPConnection, username string) bool {
+func CheckIfAdmin(conn *myAuth.LDAPConnection, username string) bool {
 	if conn == nil || conn.Conn == nil {
 		log.Println("LDAP connection is nil")
 		return false
@@ -401,14 +337,4 @@ func CheckIfAdmin(conn *serverSide.LDAPConnection, username string) bool {
 
 	log.Printf("User %s is not an admin", username)
 	return false
-}
-
-func LoadgoAuditServerSettings() (bool, string, error) {
-	err := godotenv.Load()
-	if err != nil {
-		return false, "", err
-	}
-	inUse := os.Getenv("goAudit_Server_INUSE") == "true"
-	server := os.Getenv("goAudit_SERVER")
-	return inUse, server, nil
 }

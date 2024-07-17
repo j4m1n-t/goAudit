@@ -2,17 +2,16 @@ package crud
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"strconv"
 	"time"
 
 	// External Imports
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	// Internal Imports
-	serverSide "github.com/j4m1n-t/goAudit/goAuditServer/pkg"
+	mySettings "github.com/j4m1n-t/goAudit/goAudit/internal/functions"
 )
 
 type Notes struct {
@@ -95,11 +94,7 @@ type CRM struct {
 
 // Initialize database connection
 var (
-	dbNotes       *pgx.Conn
-	dbCredentials *sql.DB
-	dbAudits      *sql.DB
-	dbTasks       *sql.DB
-	dbCRM         *sql.DB
+	dbPool *pgxpool.Pool
 )
 
 // Convert to int
@@ -108,18 +103,72 @@ func parseInt(s string) int {
 	return i
 }
 
-// Initialize database connection
-func InitDBNotes() error {
-	SQLSettings := serverSide.LoadSQLSettings()
-	connString := fmt.Sprintf("user=%s dbname=%s password=%s",
-		SQLSettings.User, SQLSettings.Database, SQLSettings.Password)
-
-	var err error
-	dbNotes, err = pgx.Connect(context.Background(), connString)
-	if err != nil {
+func EnsureTablesExist() error {
+	if err := EnsureNotesTableExists(); err != nil {
 		return err
 	}
+	// if err := EnsureCredentialsTableExists(); err != nil {
+	//     return err
+	// }
+	// if err := EnsureAuditsTableExists(); err != nil {
+	//     return err
+	// }
+	// if err := EnsureTasksTableExists(); err != nil {
+	//     return err
+	// }
+	// if err := EnsureCRMTableExists(); err != nil {
+	//     return err
+	// }
+	return nil
+}
 
+// Initialize database connection
+func InitDBNotes() error {
+	SQLSettings := mySettings.LoadSQLSettings()
+
+	// First connection string (URL style)
+	connString1 := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
+		SQLSettings.User, SQLSettings.Password, SQLSettings.Server, SQLSettings.Port, SQLSettings.Database)
+
+	// Try the first connection string
+	var err error
+	dbPool, err = pgxpool.New(context.Background(), connString1)
+	if err == nil {
+		err = dbPool.Ping(context.Background())
+		if err == nil {
+			log.Println("Successfully connected to database using the connection string.")
+			if err := EnsureNotesTableExists(); err != nil {
+				return fmt.Errorf("failed to ensure notes table exists: %v", err)
+			}
+
+			return nil
+		}
+		dbPool.Close()
+	}
+	log.Printf("Failed to connect using the first connection string: %v", err)
+
+	return fmt.Errorf("failed to connect to database using the connection string: %v", err)
+
+}
+
+// Ensure that the database contains the table
+func EnsureNotesTableExists() error {
+	createTableSQL := `
+    CREATE TABLE IF NOT EXISTS notes (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        user_id INTEGER NOT NULL,
+        user_name TEXT,
+        open BOOLEAN
+    );`
+
+	_, err := dbPool.Exec(context.Background(), createTableSQL)
+	if err != nil {
+		return fmt.Errorf("failed to create notes table: %v", err)
+	}
 	return nil
 }
 
@@ -130,7 +179,7 @@ func CreateNote(title, content string, userID int) (Notes, error) {
               VALUES ($1, $2, $3) 
               RETURNING id, created_at, updated_at`
 
-	err := dbNotes.QueryRow(context.Background(), query,
+	err := dbPool.QueryRow(context.Background(), query,
 		note.Title, note.Content, note.UserID).
 		Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
 
@@ -142,11 +191,14 @@ func CreateNote(title, content string, userID int) (Notes, error) {
 }
 
 func GetNotes() ([]Notes, error) {
+	if dbPool == nil {
+		return nil, fmt.Errorf("database connection not initialized")
+	}
 	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, 
               notes.updated_at, notes.user_id, users.name 
               FROM notes JOIN users ON notes.user_id = users.id`
 
-	rows, err := dbNotes.Query(context.Background(), query)
+	rows, err := dbPool.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +227,7 @@ func GetNote(id int) (Notes, error) {
 	var userName string
 	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, notes.user_id, users.name 
               FROM notes JOIN users ON notes.user_id = users.id WHERE notes.id = $1`
-	err := dbNotes.QueryRow(context.Background(), query, id).Scan(&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt, &note.UserID, &userName)
+	err := dbPool.QueryRow(context.Background(), query, id).Scan(&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt, &note.UserID, &userName)
 	if err != nil {
 		log.Printf("Error getting note. %s", err)
 		return Notes{}, err
@@ -187,7 +239,7 @@ func GetNote(id int) (Notes, error) {
 // Update a specific note for the given user
 func UpdateNote(note Notes) (Notes, error) {
 	query := `UPDATE notes SET title=$1, content=$2, updated_at=$3 WHERE id=$4 RETURNING id, created_at, updated_at`
-	err := dbNotes.QueryRow(context.Background(), query, note.Title, note.Content, time.Now(), note.ID).Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
+	err := dbPool.QueryRow(context.Background(), query, note.Title, note.Content, time.Now(), note.ID).Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
 	if err != nil {
 		log.Printf("Error updating note. %s", err)
 		return Notes{}, err
@@ -198,7 +250,7 @@ func UpdateNote(note Notes) (Notes, error) {
 // Delete a specific note for the given user
 func DeleteNote(id int) error {
 	query := `DELETE FROM notes WHERE id=$1`
-	_, err := dbNotes.Exec(context.Background(), query, id)
+	_, err := dbPool.Exec(context.Background(), query, id)
 	if err != nil {
 		log.Printf("Error deleting note. %s", err)
 		return err
@@ -212,7 +264,7 @@ func SearchNotes(searchTerm string) ([]Notes, error) {
 	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, notes.user_id, users.name 
               FROM notes JOIN users ON notes.user_id = users.id 
               WHERE notes.title ILIKE $1 OR notes.content ILIKE $1`
-	rows, err := dbNotes.Query(context.Background(), query, "%"+searchTerm+"%")
+	rows, err := dbPool.Query(context.Background(), query, "%"+searchTerm+"%")
 	if err != nil {
 		log.Printf("Error searching notes. %s", err)
 		return nil, err
@@ -231,4 +283,10 @@ func SearchNotes(searchTerm string) ([]Notes, error) {
 		notes = append(notes, note)
 	}
 	return notes, nil
+}
+
+func CloseDBConnection() {
+	if dbPool != nil {
+		dbPool.Close()
+	}
 }

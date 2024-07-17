@@ -13,7 +13,7 @@ import (
 	// External Imports
 
 	// Internal Imports
-	crud "github.com/j4m1n-t/goAudit/goAuditServer/pkg/CRUD"
+	crud "github.com/j4m1n-t/goAudit/goAudit/internal/CRUD"
 )
 
 var notesList *widget.List
@@ -31,7 +31,7 @@ func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
 		func() int {
 			notes, err := crud.GetNotes()
 			if err != nil {
-				log.Printf("Error getting notes: %v", err)
+				//log.Printf("Error getting notes: %v", err)
 				return 0
 			}
 			return len(notes)
@@ -80,45 +80,72 @@ func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
 }
 
 func showNoteDialog(window fyne.Window, note *crud.Notes) {
-	titleEntry := widget.NewEntry()
-	contentEntry := widget.NewMultiLineEntry()
+	var titleEntry *widget.Entry
+	var contentEntry *widget.Entry
+	var customDialog dialog.Dialog
+
+	titleEntry = widget.NewEntry()
+	titleEntry.SetPlaceHolder("Enter title")
+	titleEntry.Resize(fyne.NewSize(400, 40))
+
+	contentEntry = widget.NewMultiLineEntry()
+	contentEntry.SetPlaceHolder("Enter content")
+	contentEntry.Wrapping = fyne.TextWrapWord
+	contentEntry.Resize(fyne.NewSize(400, 300))
 
 	if note != nil {
 		titleEntry.SetText(note.Title)
 		contentEntry.SetText(note.Content)
 	}
 
-	dialog.ShowForm("Note", "Save", "Cancel",
-		[]*widget.FormItem{
-			widget.NewFormItem("Title", titleEntry),
-			widget.NewFormItem("Content", contentEntry),
-		},
-		func(bool) {
-			if note == nil {
-				// Create new note
-				newNote, err := crud.CreateNote(titleEntry.Text, contentEntry.Text, 1) // Assuming user ID 1 for now
-				if err != nil {
-					dialog.ShowError(err, window)
-					return
-				}
-				log.Printf("Created new note with ID: %d", newNote.ID)
-			} else {
-				// Update existing note
-				note.Title = titleEntry.Text
-				note.Content = contentEntry.Text
-				updatedNote, err := crud.UpdateNote(*note)
-				if err != nil {
-					dialog.ShowError(err, window)
-					return
-				}
-				log.Printf("Updated note with ID: %d", updatedNote.ID)
-			}
-			notesList.Refresh()
-		},
-		window,
+	content := container.NewVBox(
+		widget.NewLabel("Title"),
+		titleEntry,
+		widget.NewLabel("Content"),
+		contentEntry,
 	)
-}
 
+	scrollContainer := container.NewVScroll(content)
+	scrollContainer.Resize(fyne.NewSize(500, 400))
+
+	saveButton := widget.NewButton("Save", func() {
+		if note == nil {
+			// Create new note
+			newNote, err := crud.CreateNote(titleEntry.Text, contentEntry.Text, 1) // Assuming user ID 1 for now
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			log.Printf("Created new note with ID: %d", newNote.ID)
+		} else {
+			// Update existing note
+			note.Title = titleEntry.Text
+			note.Content = contentEntry.Text
+			updatedNote, err := crud.UpdateNote(*note)
+			if err != nil {
+				dialog.ShowError(err, window)
+				return
+			}
+			log.Printf("Updated note with ID: %d", updatedNote.ID)
+		}
+		notesList.Refresh()
+		customDialog.Hide()
+	})
+
+	buttons := container.NewHBox(saveButton)
+	dialogContent := container.NewVBox(scrollContainer, buttons)
+
+	customDialog = dialog.NewCustom("Note", "Cancel", dialogContent, window)
+	customDialog.Resize(fyne.NewSize(600, 500))
+
+	customDialog.SetOnClosed(func() {
+		notesList.Refresh()
+		notesList.UnselectAll()
+		log.Println("Note dialog closed")
+	})
+
+	customDialog.Show()
+}
 func performSearch(searchTerm string, window fyne.Window) {
 	searchResults, err := crud.SearchNotes(searchTerm)
 	if err != nil {

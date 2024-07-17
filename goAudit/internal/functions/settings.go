@@ -1,4 +1,4 @@
-package serverfunc
+package internal
 
 import (
 	// Standard Library
@@ -21,6 +21,7 @@ type SQLSettings struct {
 	User     string
 	Password string
 	Database string
+	Port     string
 }
 
 func SaveLDAPSettings(server, domain, ou, readOnlyPassword string) error {
@@ -37,8 +38,8 @@ func LoadLDAPSettings() LDAPSettings {
 	}
 }
 
-func SaveSQLSettings(server, user, password, database string) error {
-	envContent := fmt.Sprintf("SQL_SERVER=%s\nSQL_USER=%s\nSQL_PASSWORD=%s\nSQL_DATABASE=%s\n", server, user, password, database)
+func SaveSQLSettings(server, user, password, database string, port string) error {
+	envContent := fmt.Sprintf("SQL_SERVER=%s\nSQL_USER=%s\nSQL_PASSWORD=%s\nSQL_DATABASE=%s\nSQL_PORT=%s", server, user, password, database, port)
 	return os.WriteFile(".env", []byte(envContent), 0644)
 }
 
@@ -48,6 +49,7 @@ func LoadSQLSettings() SQLSettings {
 		User:     os.Getenv("SQL_USER"),
 		Password: os.Getenv("SQL_PASSWORD"),
 		Database: os.Getenv("SQL_DATABASE"),
+		Port:     os.Getenv("SQL_PORT"),
 	}
 }
 

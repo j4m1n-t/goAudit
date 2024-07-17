@@ -1,4 +1,4 @@
-package serverfunc
+package auth
 
 import (
 	"database/sql"

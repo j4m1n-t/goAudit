@@ -17,12 +17,13 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	// External Imports
+	"github.com/joho/godotenv"
 
 	// Internal Imports
+	crud "github.com/j4m1n-t/goAudit/goAudit/internal/CRUD"
+	myAuth "github.com/j4m1n-t/goAudit/goAudit/internal/authentication"
 	myFunctions "github.com/j4m1n-t/goAudit/goAudit/internal/functions"
 	myLayout "github.com/j4m1n-t/goAudit/goAudit/internal/layouts"
-	serverSide "github.com/j4m1n-t/goAudit/goAuditServer/pkg"
-	crud "github.com/j4m1n-t/goAudit/goAuditServer/pkg/CRUD"
 )
 
 // Theme structure
@@ -68,12 +69,17 @@ func toggleTheme(a fyne.App) {
 }
 
 var (
-	ldapConn   *serverSide.LDAPConnection
+	ldapConn   *myAuth.LDAPConnection
 	tabs       *container.AppTabs
 	configPath string
 )
 
 func main() {
+	//Load environment variables
+	env := godotenv.Load()
+	if env != nil {
+		log.Fatalf("Error loading.env file.")
+	}
 	// Set logging and configuration
 	myFunctions.SetLog()
 	configDir, err := os.UserConfigDir()
@@ -85,12 +91,11 @@ func main() {
 	configPath = filepath.Join(configDir, "goAudit", "config.json")
 	// Initialize connection to db server(s)
 	crud.InitDBNotes()
-
 	// Set the default app layout
 	myApp := app.New()
 	myWindow := myApp.NewWindow("goAudit")
 	myWindow.SetTitle("goAudit")
-	myWindow.Resize(fyne.NewSize(800, 600))
+	myWindow.Resize(fyne.NewSize(800, 700))
 	myWindow.SetPadded(true)
 	// Icons and mutible items
 
@@ -121,7 +126,7 @@ func main() {
 		os.Exit(0)
 	})
 	LogoutItem := fyne.NewMenuItem("Logout", func() {
-		serverSide.LogoutUser(ldapConn)
+		myAuth.LogoutUser(ldapConn)
 	})
 	SettingsMenu := fyne.NewMenu("Settings")
 	ThemeItem := fyne.NewMenuItem("Toggle Theme", func() { toggleTheme(myApp) })
@@ -142,7 +147,7 @@ func main() {
 		},
 		OnSubmit: func() {
 			var err error
-			ldapConn, err = serverSide.ConnectToAdServer(username.Text, password.Text)
+			ldapConn, err = myAuth.ConnectToAdServer(username.Text, password.Text)
 			if err != nil {
 				dialog.ShowError(err, myWindow)
 				fyne.LogError("Error connecting to LDAP server.", err)
