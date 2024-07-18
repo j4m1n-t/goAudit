@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	// External Imports
@@ -44,7 +45,7 @@ func GetUserByAnyID(identifier interface{}) (Users, error) {
 	return user, nil
 }
 
-func InitDB() error {
+func InitDBUsers() error {
 	SQLSettings := mySettings.LoadSQLSettings()
 
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
@@ -62,7 +63,7 @@ func InitDB() error {
 		return fmt.Errorf("failed to ping database: %v", err)
 	}
 
-	log.Println("Successfully connected to database.")
+	log.Println("Successfully connected to database for users.")
 
 	if err := EnsureUserTableExists(); err != nil {
 		return fmt.Errorf("failed to ensure table exists: %v", err)
@@ -95,6 +96,12 @@ func Create(username, email, status string, user_id int, id int, created_at, upd
 	userItem := Users{Username: username, Email: email, Status: status, UserID: user_id, CreatedAt: created_at, UpdatedAt: updated_at, LastLogin: last_login}
 	query := `INSERT INTO users (username, user_id, email, status, created_at, updated_at, last_login) 
               VALUES ($1, $2, $3, $4, $5, $6, $7) 
+              ON CONFLICT (user_id) DO UPDATE SET
+              username = EXCLUDED.username,
+              email = EXCLUDED.email,
+              status = EXCLUDED.status,
+              updated_at = EXCLUDED.updated_at,
+              last_login = EXCLUDED.last_login
               RETURNING id, username, user_id, email, status, created_at, updated_at, last_login`
 
 	err := dbPool.QueryRow(context.Background(), query,
@@ -130,7 +137,11 @@ func GetOrCreateUser(username string) (Users, error) {
 }
 
 func generateUserID() int {
-	return int(time.Now().UnixNano())
+	timestamp := time.Now().Unix()
+	randomPart := rand.Intn(10000)
+	userID := (int(timestamp)%100000)*10000 + randomPart
+	return userID
+
 }
 
 // Do we want this? It seems like an error
@@ -138,7 +149,7 @@ func GetAll() ([]Users, error) {
 	if dbPool == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
-	query := `SELECT id, user, user_id, email, status, created_at, updated_at, last_login FROM users`
+	query := `SELECT id, username, user_id, email, status, created_at, updated_at, last_login FROM users`
 
 	rows, err := dbPool.Query(context.Background(), query)
 	if err != nil {
@@ -161,7 +172,7 @@ func GetAll() ([]Users, error) {
 
 func Get(id int) (Users, error) {
 	var user Users
-	query := `SELECT id, user, user_id, email, status, created_at, updated_at, last_login
+	query := `SELECT id, username, user_id, email, status, created_at, updated_at, last_login
               FROM users WHERE id = $1`
 	err := dbPool.QueryRow(context.Background(), query, id).Scan(
 		&user.ID, &user.Username, &user.UserID, &user.Email, &user.Status, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin)
@@ -172,7 +183,7 @@ func Get(id int) (Users, error) {
 }
 
 func Update(user Users) (Users, error) {
-	query := `UPDATE users SET user=$1, user_id=$2, email=$3, status=$4, updated_at=$5, last_login=$6 
+	query := `UPDATE users SET username=$1, user_id=$2, email=$3, status=$4, updated_at=$5, last_login=$6 
               WHERE id=$7 RETURNING id, created_at, updated_at`
 	err := dbPool.QueryRow(context.Background(), query,
 		user.Username, user.UserID, user.Email, user.Status, time.Now(), user.LastLogin, user.ID).

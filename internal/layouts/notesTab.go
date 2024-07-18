@@ -1,80 +1,73 @@
 package layouts
 
 import (
-	// Standard Library
+	"errors"
 	"log"
 
-	// Fyne Imports
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	// External Imports
-
-	// Internal Imports
 	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
 var notesList *widget.List
 var ldapConn myAuth.LDAPConnection
 
-func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
-	// Search functionality
+func CreatePlaceholderNotesTab() fyne.CanvasObject {
+	return container.NewVBox(
+		widget.NewLabel("Please log in to view your notes."),
+	)
+}
+
+func CreateNotesTabContent(window fyne.Window, appState *state.AppState) fyne.CanvasObject {
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Search notes...")
 	searchButton := widget.NewButton("Search", func() {
-		performSearch(searchEntry.Text, window)
+		performSearch(searchEntry.Text, window, appState)
 	})
 
-	user, err := crud.GetOrCreateUser(ldapConn.Username)
-	if err != nil {
-		log.Printf("Error getting or creating user: %v", err)
-		dialog.ShowError(err, window)
-		return nil
-	}
-	log.Printf("User details: ID=%d, Username=%s, UserID=%d", user.ID, user.Username, user.UserID)
+	// Fetch notes
+	appState.FetchNotes()
 
-	// List of notes
+	messageLabel := widget.NewLabel(appState.Message)
+
 	notesList = widget.NewList(
 		func() int {
-			notes, err := crud.GetNotes()
-			if err != nil {
-				//log.Printf("Error getting notes: %v", err)
-				return 0
-			}
-			return len(notes)
+			return len(appState.Notes)
 		},
 		func() fyne.CanvasObject {
-			return widget.NewLabel("Note Title")
+			return container.NewHBox(
+				widget.NewIcon(theme.DocumentIcon()),
+				widget.NewLabel("Title"),
+				widget.NewLabel("(Open)"),
+			)
 		},
 		func(id widget.ListItemID, item fyne.CanvasObject) {
-			notes, err := crud.GetNotes()
-			if err != nil {
-				log.Printf("Error getting notes: %v", err)
-				return
-			}
-			if id < len(notes) {
-				item.(*widget.Label).SetText(notes[id].Title)
+			if id < len(appState.Notes) {
+				note := appState.Notes[id]
+				item.(*fyne.Container).Objects[1].(*widget.Label).SetText(note.Title)
+				openLabel := item.(*fyne.Container).Objects[2].(*widget.Label)
+				if note.Open {
+					openLabel.Show()
+				} else {
+					openLabel.Hide()
+				}
 			}
 		},
 	)
 
-	// Create new note button
 	newNoteButton := widget.NewButton("New Note", func() {
-		showNoteDialog(window, nil)
+		showNoteDialog(window, nil, appState)
 	})
 
-	// Edit note when list item is selected
 	notesList.OnSelected = func(id widget.ListItemID) {
-		notes, err := crud.GetNotes()
-		if err != nil {
-			dialog.ShowError(err, window)
-			return
-		}
-		if id < len(notes) {
-			showNoteDialog(window, &notes[id])
+		if id < len(appState.Notes) {
+			showNoteDialog(window, &appState.Notes[id], appState)
 		}
 	}
 
@@ -82,6 +75,7 @@ func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
 		container.NewVBox(
 			widget.NewLabel("Notes"),
 			container.NewBorder(nil, nil, nil, searchButton, searchEntry),
+			messageLabel,
 			newNoteButton,
 		),
 		nil, nil, nil,
@@ -89,16 +83,11 @@ func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
 	)
 }
 
-func showNoteDialog(window fyne.Window, note *crud.Notes) {
+func showNoteDialog(window fyne.Window, note *crud.Notes, appState *state.AppState) {
 	var titleEntry *widget.Entry
 	var contentEntry *widget.Entry
 	var customDialog dialog.Dialog
-
-	user, err := crud.GetOrCreateUser(ldapConn.Username)
-	if err != nil {
-		dialog.ShowError(err, window)
-		return
-	}
+	var openCheck *widget.Check
 
 	titleEntry = widget.NewEntry()
 	titleEntry.SetPlaceHolder("Enter title")
@@ -107,24 +96,38 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 	contentEntry.SetPlaceHolder("Enter content")
 	contentEntry.Wrapping = fyne.TextWrapWord
 
+	openCheck = widget.NewCheck("Open Note to All", func(checked bool) {
+		if note != nil {
+			note.Open = checked
+		}
+		log.Printf("Open status changed to: %v", checked)
+	})
+
 	if note != nil {
 		titleEntry.SetText(note.Title)
 		contentEntry.SetText(note.Content)
+		openCheck.SetChecked(note.Open)
 	}
 
 	saveButton := widget.NewButton("Save", func() {
+		if appState.Username == "" {
+			dialog.ShowError(errors.New("user is not logged in"), window)
+			return
+		}
+		log.Printf("username changed to: %v", appState.Username)
+		log.Printf("Note Title changed to: %v", titleEntry.Text)
+		log.Printf("Note Content changed to: %v", contentEntry.Text)
 		if note == nil {
-			// Create new note
-			newNote, err := crud.CreateNote(titleEntry.Text, contentEntry.Text, user) // Pass the entire user object
+			newNote, err := crud.CreateNote(titleEntry.Text, contentEntry.Text, appState.Username, openCheck.Checked)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
 			}
-			log.Printf("Created new note with ID: %d", newNote.ID)
+			log.Printf("Created new note with ID: %d for user: %s", newNote.ID, appState.Username)
 		} else {
-			// Update existing note
 			note.Title = titleEntry.Text
 			note.Content = contentEntry.Text
+			note.Open = openCheck.Checked
 			updatedNote, err := crud.UpdateNote(*note)
 			if err != nil {
 				dialog.ShowError(err, window)
@@ -132,15 +135,42 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 			}
 			log.Printf("Updated note with ID: %d", updatedNote.ID)
 		}
+		appState.FetchNotes()
 		notesList.Refresh()
 		customDialog.Hide()
 	})
-	buttons := container.NewHBox(saveButton)
+
+	deleteButton := widget.NewButton("Delete", func() {
+		if note != nil {
+			confirmDialog := dialog.NewConfirm("Confirm Delete", "Are you sure you want to delete this note?", func(confirm bool) {
+				if confirm {
+					err := crud.DeleteNote(note.ID, appState.Username)
+					if err != nil {
+						dialog.ShowError(err, window)
+						return
+					}
+					log.Printf("Deleted note with ID: %d by username: %s", note.ID, appState.Username)
+					appState.FetchNotes()
+					notesList.Refresh()
+					customDialog.Hide()
+				}
+			}, window)
+			confirmDialog.Show()
+		}
+	})
+
+	var buttons fyne.CanvasObject
+	if note != nil {
+		buttons = container.NewHBox(saveButton, deleteButton)
+	} else {
+		buttons = container.NewHBox(saveButton)
+	}
 
 	content := container.NewBorder(
 		container.NewVBox(
 			widget.NewLabel("Title"),
 			titleEntry,
+			openCheck,
 		),
 		nil,
 		nil,
@@ -151,16 +181,14 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 		),
 	)
 
-	// Wrap content in a padded container
 	paddedContent := container.NewPadded(content)
-
-	// Create a container with buttons at the bottom
 	mainContainer := container.NewBorder(nil, buttons, nil, nil, paddedContent)
 
 	customDialog = dialog.NewCustom("Note", "Cancel", mainContainer, window)
 	customDialog.Resize(fyne.NewSize(600, 500))
 
 	customDialog.SetOnClosed(func() {
+		appState.FetchNotes()
 		notesList.Refresh()
 		notesList.UnselectAll()
 		log.Println("Note dialog closed")
@@ -169,8 +197,13 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 	customDialog.Show()
 }
 
-func performSearch(searchTerm string, window fyne.Window) {
-	searchResults, err := crud.SearchNotes(searchTerm)
+func performSearch(searchTerm string, window fyne.Window, appState *state.AppState) {
+	if appState == nil || appState.Username == "" {
+		dialog.ShowError(errors.New("user is not logged in"), window)
+		return
+	}
+
+	searchResults, message, err := crud.SearchNotes(searchTerm, appState.Username)
 	if err != nil {
 		dialog.ShowError(err, window)
 		return
@@ -189,8 +222,8 @@ func performSearch(searchTerm string, window fyne.Window) {
 	)
 
 	resultList.OnSelected = func(id widget.ListItemID) {
-		showNoteDialog(window, &searchResults[id])
+		showNoteDialog(window, &searchResults[id], appState)
 	}
 
-	dialog.ShowCustom("Search Results", "Close", resultList, window)
+	dialog.ShowCustom(message, "Close", resultList, window)
 }

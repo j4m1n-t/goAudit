@@ -6,8 +6,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func CreatePlaceholderCRMTab() fyne.CanvasObject {
+func CreatePlaceholderCredentialsTab() fyne.CanvasObject {
 	return container.NewVBox(
-		widget.NewLabel("Please log in to view your Customer Relationships."),
+		widget.NewLabel("Please log in to view your stored credentials."),
 	)
 }

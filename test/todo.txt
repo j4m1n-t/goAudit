@@ -1,0 +1,16 @@
+TODO
+
+Add last_login func to users db and call it from login on main
+Fix user_name and author not coming over for notes.
+
+
+
+Helpers
+// Get by ID
+//user, err := GetUserByAnyID(1)
+
+// Get by UserID
+//user, err := GetUserByAnyID(1001)
+
+// Get by Username
+//user, err := GetUserByAnyID("johndoe")

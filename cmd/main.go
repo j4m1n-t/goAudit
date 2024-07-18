@@ -24,6 +24,7 @@ import (
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
 	myFunctions "github.com/j4m1n-t/goAudit/internal/functions"
 	myLayout "github.com/j4m1n-t/goAudit/internal/layouts"
+	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
 // Theme structure
@@ -69,9 +70,14 @@ func toggleTheme(a fyne.App) {
 }
 
 var (
-	ldapConn   *myAuth.LDAPConnection
-	tabs       *container.AppTabs
-	configPath string
+	tabs           *container.AppTabs
+	configPath     string
+	adminTab       fyne.CanvasObject
+	auditTab       fyne.CanvasObject
+	credentialsTab fyne.CanvasObject
+	crmTab         fyne.CanvasObject
+	notesTab       fyne.CanvasObject
+	tasksTab       fyne.CanvasObject
 )
 
 func main() {
@@ -90,7 +96,7 @@ func main() {
 	log.Printf("Config directory: %s", configDir)
 	configPath = filepath.Join(configDir, "goAudit", "config.json")
 	// Initialize connection to db server(s)
-	crud.InitDBNotes()
+	crud.InitDBs()
 	// Set the default app layout
 	myApp := app.New()
 	myWindow := myApp.NewWindow("goAudit")
@@ -120,13 +126,13 @@ func main() {
 	FileMenu := fyne.NewMenu("File")
 	QuitItem := fyne.NewMenuItem("Quit", func() {
 		// Graceful shutdown handling
-		if ldapConn != nil && ldapConn.Conn != nil {
-			ldapConn.Conn.Close()
+		if state.GlobalState.LDAPConn != nil && state.GlobalState.LDAPConn.Conn != nil {
+			state.GlobalState.LDAPConn.Conn.Close()
 		}
 		os.Exit(0)
 	})
 	LogoutItem := fyne.NewMenuItem("Logout", func() {
-		myAuth.LogoutUser(ldapConn)
+		myAuth.LogoutUser(state.GlobalState.LDAPConn)
 	})
 	SettingsMenu := fyne.NewMenu("Settings")
 	ThemeItem := fyne.NewMenuItem("Toggle Theme", func() { toggleTheme(myApp) })
@@ -147,34 +153,47 @@ func main() {
 		},
 		OnSubmit: func() {
 			var err error
-			ldapConn, err = myAuth.ConnectToAdServer(username.Text, password.Text)
+			state.GlobalState.LDAPConn, err = myAuth.ConnectToAdServer(username.Text, password.Text)
 			if err != nil {
 				dialog.ShowError(err, myWindow)
 				fyne.LogError("Error connecting to LDAP server.", err)
 				return
 			}
-			isAdmin := myFunctions.CheckIfAdmin(ldapConn, username.Text)
+			state.GlobalState.Username = username.Text
+			err = state.GlobalState.FetchNotes()
+			if err != nil {
+				dialog.ShowError(err, myWindow)
+				fyne.LogError("Error fetching notes.", err)
+				return
+			}
+			log.Printf("Notes fetched for user: %s: %+v", state.GlobalState.Username, state.GlobalState.Notes)
+			notesTab = myLayout.CreateNotesTabContent(myWindow, &state.GlobalState)
+			tabs.Items[5].Content = notesTab
+			tasksTab = myLayout.CreateTasksTabContent(myWindow)
+			tabs.Items[6].Content = tasksTab
+			isAdmin := myFunctions.CheckIfAdmin(state.GlobalState.LDAPConn, username.Text)
 			myFunctions.UpdateMenuForUser(isAdmin, myWindow)
-			// Create a scroll container with a minimum size
-			// Switch to the 'Search' tab after successful login
 			tabs.SelectIndex(1)
 		},
 	}
 
-	NotesTab := myLayout.CreateNotesTabContent(myWindow)
-	TasksTab := container.NewVBox(
-		widget.NewLabel("Tasks"),
-		widget.NewLabel("Users tasks will show in this area."),
-	)
+	adminTab = myLayout.CreatePlaceholderAdminTab()
+	auditTab = myLayout.CreatePlaceholderAuditsTab()
+	credentialsTab = myLayout.CreatePlaceholderCredentialsTab()
+	crmTab = myLayout.CreatePlaceholderCRMTab()
+	notesTab = myLayout.CreatePlaceholderNotesTab()
+	tasksTab = myLayout.CreatePlaceholderTaskTab()
 	tabs = container.NewAppTabs(
-		// container.NewTabItem("Audits", auditTab),
-		// container.NewTabItem("CRM", crmTab),
-		// container.NewTabItem("Credentials", credentialsTab),
+		container.NewTabItem("Admin", adminTab),
+		container.NewTabItem("Audits", auditTab),
+		container.NewTabItem("CRM", crmTab),
+		container.NewTabItem("Credentials", credentialsTab),
 		container.NewTabItem("Login", loginForm),
-		container.NewTabItem("Notes", NotesTab),
-		container.NewTabItem("Tasks", TasksTab),
+		container.NewTabItem("Notes", notesTab),
+		container.NewTabItem("Tasks", tasksTab),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
+	tabs.SelectIndex(4)
 	myWindow.SetContent(tabs)
 
 	// Show and run the application
