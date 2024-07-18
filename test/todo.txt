@@ -1,7 +1,9 @@
 TODO
+Update the login function for tabs
+Encrypt passwords
+Setup the master password functionality
 
-Add last_login func to users db and call it from login on main
-Fix user_name and author not coming over for notes.
+Decide on server / serverless 
 
 
 
