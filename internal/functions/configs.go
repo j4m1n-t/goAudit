@@ -338,3 +338,11 @@ func CheckIfAdmin(conn *myAuth.LDAPConnection, username string) bool {
 	log.Printf("User %s is not an admin", username)
 	return false
 }
+	// Get by ID
+//user, err := GetUserByAnyID(1)
+
+// Get by UserID
+//user, err := GetUserByAnyID(1001)
+
+// Get by Username
+//user, err := GetUserByAnyID("johndoe")

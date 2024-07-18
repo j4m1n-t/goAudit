@@ -14,9 +14,11 @@ import (
 
 	// Internal Imports
 	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
+	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
 )
 
 var notesList *widget.List
+var ldapConn myAuth.LDAPConnection
 
 func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
 	// Search functionality
@@ -25,6 +27,14 @@ func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
 	searchButton := widget.NewButton("Search", func() {
 		performSearch(searchEntry.Text, window)
 	})
+
+	user, err := crud.GetOrCreateUser(ldapConn.Username)
+	if err != nil {
+		log.Printf("Error getting or creating user: %v", err)
+		dialog.ShowError(err, window)
+		return nil
+	}
+	log.Printf("User details: ID=%d, Username=%s, UserID=%d", user.ID, user.Username, user.UserID)
 
 	// List of notes
 	notesList = widget.NewList(
@@ -84,6 +94,12 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 	var contentEntry *widget.Entry
 	var customDialog dialog.Dialog
 
+	user, err := crud.GetOrCreateUser(ldapConn.Username)
+	if err != nil {
+		dialog.ShowError(err, window)
+		return
+	}
+
 	titleEntry = widget.NewEntry()
 	titleEntry.SetPlaceHolder("Enter title")
 
@@ -99,7 +115,7 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 	saveButton := widget.NewButton("Save", func() {
 		if note == nil {
 			// Create new note
-			newNote, err := crud.CreateNote(titleEntry.Text, contentEntry.Text, 1) // Assuming user ID 1 for now
+			newNote, err := crud.CreateNote(titleEntry.Text, contentEntry.Text, user) // Pass the entire user object
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -119,7 +135,6 @@ func showNoteDialog(window fyne.Window, note *crud.Notes) {
 		notesList.Refresh()
 		customDialog.Hide()
 	})
-
 	buttons := container.NewHBox(saveButton)
 
 	content := container.NewBorder(

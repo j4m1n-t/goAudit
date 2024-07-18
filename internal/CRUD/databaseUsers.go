@@ -7,6 +7,7 @@ import (
 	"time"
 
 	// External Imports
+	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	// Internal Imports
@@ -35,19 +36,13 @@ func GetUserByAnyID(identifier interface{}) (Users, error) {
 		&user.ID, &user.Username, &user.UserID, &user.Email, &user.Status,
 		&user.CreatedAt, &user.UpdatedAt, &user.LastLogin)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return Users{}, fmt.Errorf("user not found")
+		}
 		return Users{}, err
 	}
 	return user, nil
 }
-
-// Get by ID
-//user, err := GetUserByAnyID(1)
-
-// Get by UserID
-//user, err := GetUserByAnyID(1001)
-
-// Get by Username
-//user, err := GetUserByAnyID("johndoe")
 
 func InitDB() error {
 	SQLSettings := mySettings.LoadSQLSettings()
@@ -96,20 +91,46 @@ func EnsureUserTableExists() error {
 	return nil
 }
 
-func Create(username, email, status string, user_id, id int, created_at, updated_at, last_login time.Time) (Users, error) {
-	userItem := Users{Username: username, Email: email, Status: status, UserID: user_id, ID: id, CreatedAt: created_at, UpdatedAt: updated_at, LastLogin: last_login}
-	query := `INSERT INTO users (username, user_id, email, status, id, created_at, updated_at, last_login) 
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-              RETURNING username, user_id, id, created_at, updated_at`
+func Create(username, email, status string, user_id int, id int, created_at, updated_at, last_login time.Time) (Users, error) {
+	userItem := Users{Username: username, Email: email, Status: status, UserID: user_id, CreatedAt: created_at, UpdatedAt: updated_at, LastLogin: last_login}
+	query := `INSERT INTO users (username, user_id, email, status, created_at, updated_at, last_login) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7) 
+              RETURNING id, username, user_id, email, status, created_at, updated_at, last_login`
 
-	err := dbPool.QueryRow(context.Background(), query, userItem.Username, userItem.UserID, userItem.CreatedAt).
-		Scan(&userItem.Username, &userItem.CreatedAt, &userItem.UpdatedAt)
+	err := dbPool.QueryRow(context.Background(), query,
+		userItem.Username, userItem.UserID, userItem.Email, userItem.Status,
+		userItem.CreatedAt, userItem.UpdatedAt, userItem.LastLogin).
+		Scan(&userItem.ID, &userItem.Username, &userItem.UserID, &userItem.Email,
+			&userItem.Status, &userItem.CreatedAt, &userItem.UpdatedAt, &userItem.LastLogin)
 
 	if err != nil {
 		return Users{}, err
 	}
 
 	return userItem, nil
+}
+func GetOrCreateUser(username string) (Users, error) {
+	user, err := GetUserByAnyID(username)
+	if err != nil {
+		// User not found, create a new one
+		newUser := Users{
+			Username:  username,
+			UserID:    generateUserID(),
+			Status:    "Active",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		createdUser, err := Create(newUser.Username, "", newUser.Status, newUser.UserID, 0, newUser.CreatedAt, newUser.UpdatedAt, time.Time{})
+		if err != nil {
+			return Users{}, fmt.Errorf("failed to create user: %v", err)
+		}
+		return createdUser, nil
+	}
+	return user, nil
+}
+
+func generateUserID() int {
+	return int(time.Now().UnixNano())
 }
 
 // Do we want this? It seems like an error
@@ -168,3 +189,12 @@ func Delete(user Users) error {
 	_, err := dbPool.Exec(context.Background(), query, user.ID, user.UserID)
 	return err
 }
+
+// Get by ID
+//user, err := GetUserByAnyID(1)
+
+// Get by UserID
+//user, err := GetUserByAnyID(1001)
+
+// Get by Username
+//user, err := GetUserByAnyID("johndoe")

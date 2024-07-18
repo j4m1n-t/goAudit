@@ -183,16 +183,16 @@ func EnsureNotesTableExists() error {
 }
 
 // Put note in database and associate to the user
-func CreateNote(title, content string, userID int) (Notes, error) {
+func CreateNote(title, content string, User Users) (Notes, error) {
 	note := Notes{
-		Title:   title,
-		Content: content,
-		UserID:  []Users{{ID: userID}},
-		User:    []Users{{ID: userID}},
+		Title:    title,
+		Content:  content,
+		UserID:   []Users{{UserID: User.UserID}},
+		Username: []Users{{Username: User.Username}},
 	}
 
 	query := `INSERT INTO notes (title, content, user_id) VALUES ($1, $2, $3) RETURNING id, created_at, updated_at`
-	err := dbPool.QueryRow(context.Background(), query, note.Title, note.Content, userID).
+	err := dbPool.QueryRow(context.Background(), query, note.Title, note.Content).
 		Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
 	if err != nil {
 		return Notes{}, err
@@ -219,12 +219,12 @@ func GetNotes() ([]Notes, error) {
 		var user Users
 		err := rows.Scan(&note.ID, &note.Title, &note.Content,
 			&note.CreatedAt, &note.UpdatedAt,
-			&user.UserID, &user.ID, &user.User, &user.Email)
+			&user.UserID, &user.ID, &user.Username, &user.Email)
 		if err != nil {
 			return nil, err
 		}
-		note.UserID = []Users{user}
-		note.User = []Users{user}
+		note.UserID = []Users{{UserID: user.UserID}}
+		note.Username = []Users{{Username: user.Username}}
 		notes = append(notes, note)
 	}
 	return notes, rows.Err()
@@ -238,13 +238,13 @@ func GetNote(id int) (Notes, error) {
               FROM notes JOIN users ON notes.user_id = users.id WHERE notes.id = $1`
 	err := dbPool.QueryRow(context.Background(), query, id).Scan(
 		&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt,
-		&user.UserID, &user.ID, &user.User, &user.Email)
+		&user.UserID, &user.ID, &user.Username, &user.Email)
 	if err != nil {
 		log.Printf("Error getting note. %s", err)
 		return Notes{}, err
 	}
-	note.UserID = []Users{user}
-	note.User = []Users{user}
+	note.UserID = []Users{{UserID: user.UserID}}
+	note.Username = []Users{{Username: user.Username}}
 	return note, nil
 }
 
@@ -285,13 +285,13 @@ func SearchNotes(searchTerm string) ([]Notes, error) {
 		var note Notes
 		var user Users
 		err := rows.Scan(&note.ID, &note.Title, &note.Content, &note.CreatedAt, &note.UpdatedAt,
-			&user.UserID, &user.ID, &user.User, &user.Email)
+			&user.UserID, &user.ID, &user.Username, &user.Email)
 		if err != nil {
 			log.Printf("Error scanning note. %s", err)
 			continue
 		}
-		note.UserID = []Users{user}
-		note.User = []Users{user}
+		note.UserID = []Users{{UserID: user.UserID}}
+		note.Username = []Users{{Username: user.Username}}
 		notes = append(notes, note)
 	}
 	return notes, nil
