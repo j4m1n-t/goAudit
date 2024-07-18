@@ -160,12 +160,7 @@ func main() {
 				return
 			}
 			state.GlobalState.Username = username.Text
-			err = state.GlobalState.FetchNotes()
-			if err != nil {
-				dialog.ShowError(err, myWindow)
-				fyne.LogError("Error fetching notes.", err)
-				return
-			}
+			state.GlobalState.FetchAll()
 			log.Printf("Notes fetched for user: %s: %+v", state.GlobalState.Username, state.GlobalState.Notes)
 			notesTab = myLayout.CreateNotesTabContent(myWindow, &state.GlobalState)
 			tabs.Items[5].Content = notesTab

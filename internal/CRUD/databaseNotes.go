@@ -40,14 +40,16 @@ type Users struct {
 
 // Credential Structure
 type Credentials struct {
-	ID         int    `json:"id"`
-	LoginName  string `json:"login_name"`
-	Password   string `json:"password"`
-	RememberMe bool   `json:"remember_me"`
-	Site       string `json:"site"`
-	Program    string `json:"program"`
-	UserID     int    `json:"-"`
-	Username   string `json:"username"`
+	ID         int       `json:"id"`
+	LoginName  string    `json:"login_name"`
+	Password   string    `json:"password"`
+	RememberMe bool      `json:"remember_me"`
+	Site       string    `json:"site"`
+	Program    string    `json:"program"`
+	UserID     int       `json:"-"`
+	Username   string    `json:"username"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // Audit Structure
