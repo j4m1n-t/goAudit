@@ -25,7 +25,6 @@ import (
 	myFunctions "github.com/j4m1n-t/goAudit/internal/functions"
 	myLayout "github.com/j4m1n-t/goAudit/internal/layouts"
 	state "github.com/j4m1n-t/goAudit/internal/status"
-	myConfigs "github.com/j4m1n-t/internal/configs"
 )
 
 // Theme structure
@@ -163,7 +162,7 @@ func main() {
 			state.GlobalState.Username = username.Text
 			state.GlobalState.FetchAll()
 			log.Printf("Notes fetched for user: %s: %+v", state.GlobalState.Username, state.GlobalState.Notes)
-			myConfigs.UpdateTabsForUser(myWindow, state.GlobalState)
+			myFunctions.UpdateTabsForUser(myWindow)
 			isAdmin := myFunctions.CheckIfAdmin(state.GlobalState.LDAPConn, username.Text)
 			myFunctions.UpdateMenuForUser(isAdmin, myWindow)
 			tabs.SelectIndex(1)
