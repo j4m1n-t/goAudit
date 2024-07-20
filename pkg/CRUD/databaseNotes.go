@@ -12,7 +12,7 @@ import (
 
 	// Internal Imports
 
-	mySettings "github.com/j4m1n-t/goAudit/internal/functions"
+	mySettings "github.com/j4m1n-t/goAudit/pkg/functions"
 )
 
 type Notes struct {

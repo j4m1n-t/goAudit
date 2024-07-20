@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	// Internal Imports
-	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	myAuth "github.com/j4m1n-t/goAudit/pkg/authentication"
 )
 
 type User struct {

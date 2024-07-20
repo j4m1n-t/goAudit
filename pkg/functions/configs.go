@@ -21,9 +21,9 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
-	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
-	myLayout "github.com/j4m1n-t/goAudit/internal/layouts"
-	state "github.com/j4m1n-t/goAudit/internal/status"
+	myAuth "github.com/j4m1n-t/goAudit/pkg/authentication"
+	myLayout "github.com/j4m1n-t/goAudit/pkg/layouts"
+	state "github.com/j4m1n-t/goAudit/pkg/status"
 )
 
 type AppConfig struct {
@@ -341,8 +341,9 @@ func CheckIfAdmin(conn *myAuth.LDAPConnection, username string) bool {
 	return false
 }
 
-func UpdateTabsForUser(window fyne.Window, appState *state.AppState) {
+func UpdateTabsForUser(window fyne.Window) {
 	var tabs *container.AppTabs
+	var appState *state.AppState
 	// Set get content for tabs
 	auditsTab := myLayout.CreateAuditsTabContent(window)
 	credentialsTab := myLayout.CreateCredentialsTabContent(window, appState)

@@ -10,9 +10,9 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
-	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
-	state "github.com/j4m1n-t/goAudit/internal/status"
+	crud "github.com/j4m1n-t/goAudit/pkg/CRUD"
+	myAuth "github.com/j4m1n-t/goAudit/pkg/authentication"
+	state "github.com/j4m1n-t/goAudit/pkg/status"
 )
 
 var notesList *widget.List
