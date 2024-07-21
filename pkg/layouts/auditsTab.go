@@ -9,7 +9,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/pkg/CRUD"
+	crud "github.com/j4m1n-t/goAudit/pkg/crud"
 	state "github.com/j4m1n-t/goAudit/pkg/status"
 )
 
