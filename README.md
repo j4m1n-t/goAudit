@@ -7,3 +7,4 @@
 <li>Save usernames and passwords securely</li>
 <li>Keep track of communication with customers and vendors</li>
 <p>More to come</p>
+<p>A postgres database is required for optimization of the program</p>
