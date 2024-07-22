@@ -20,8 +20,8 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
+	crud "github.com/j4m1n-t/goAudit/pkg/CRUD"
 	myAuth "github.com/j4m1n-t/goAudit/pkg/authentication"
-	crud "github.com/j4m1n-t/goAudit/pkg/crud"
 	myFunctions "github.com/j4m1n-t/goAudit/pkg/functions"
 	myLayout "github.com/j4m1n-t/goAudit/pkg/layouts"
 	state "github.com/j4m1n-t/goAudit/pkg/status"
