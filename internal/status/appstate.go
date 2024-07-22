@@ -3,8 +3,8 @@ package state
 import (
 	"log"
 
-	crud "github.com/j4m1n-t/goAudit/pkg/CRUD"
-	myAuth "github.com/j4m1n-t/goAudit/pkg/authentication"
+	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
 )
 
 type AppState struct {

@@ -9,8 +9,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/pkg/crud"
-	state "github.com/j4m1n-t/goAudit/pkg/status"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
 var auditsList *widget.List

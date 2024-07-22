@@ -1,4 +1,4 @@
-package internal
+package funcs
 
 import (
 	//Standard Library Imports//
@@ -21,9 +21,9 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
-	myAuth "github.com/j4m1n-t/goAudit/pkg/authentication"
-	myLayout "github.com/j4m1n-t/goAudit/pkg/layouts"
-	state "github.com/j4m1n-t/goAudit/pkg/status"
+	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	state "github.com/j4m1n-t/goAudit/internal/status"
+	myLayout "github.com/j4m1n-t/goAudit/pkg/tablayout"
 )
 
 type AppConfig struct {

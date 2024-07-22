@@ -1,4 +1,4 @@
-package internal
+package funcs
 
 import (
 	// Standard Library
