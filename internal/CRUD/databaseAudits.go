@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
+	// Internal Imports
 	mySettings "github.com/j4m1n-t/goAudit/internal/functions"
 )
 

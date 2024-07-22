@@ -7,7 +7,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
+	crud "github.com/j4m1n-t/goAudit/internal/crud"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 

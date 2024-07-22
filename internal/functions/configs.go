@@ -1,4 +1,4 @@
-package internal
+package functions
 
 import (
 	//Standard Library Imports//
@@ -22,7 +22,7 @@ import (
 
 	// Internal Imports
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
-	myLayout "github.com/j4m1n-t/goAudit/internal/layouts"
+	layouts "github.com/j4m1n-t/goAudit/internal/layouts"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
@@ -344,11 +344,11 @@ func CheckIfAdmin(conn *myAuth.LDAPConnection, username string) bool {
 func UpdateTabsForUser(window fyne.Window, appState *state.AppState) {
 	var tabs *container.AppTabs
 	// Set get content for tabs
-	auditsTab := myLayout.CreateAuditsTabContent(window)
-	credentialsTab := myLayout.CreateCredentialsTabContent(window, appState)
-	crmTab := myLayout.CreateCRMTabContent(window)
-	notesTab := myLayout.CreateNotesTabContent(window, appState)
-	tasksTab := myLayout.CreateTasksTabContent(window)
+	auditsTab := layouts.CreateAuditsTabContent(window)
+	credentialsTab := layouts.CreateCredentialsTabContent(window, appState)
+	crmTab := layouts.CreateCRMTabContent(window)
+	notesTab := layouts.CreateNotesTabContent(window, appState)
+	tasksTab := layouts.CreateTasksTabContent(window)
 	// Set the content for tabs
 	tabs.Items[2].Content = auditsTab
 	tabs.Items[3].Content = credentialsTab
