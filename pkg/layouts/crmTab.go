@@ -7,8 +7,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/pkg/CRUD"
-	state "github.com/j4m1n-t/goAudit/pkg/status"
+	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
+	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
 var crmList *widget.List
