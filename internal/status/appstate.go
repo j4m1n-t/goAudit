@@ -1,37 +1,57 @@
 package state
 
 import (
+	"errors"
+	"fmt"
 	"log"
 
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
-	crud "github.com/j4m1n-t/goAudit/internal/crud"
+	"github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
 type AppState struct {
 	LDAPConn    *myAuth.LDAPConnection
 	Username    string
-	Notes       []crud.Notes
-	Tasks       []crud.Tasks
-	Audits      []crud.Audits
-	CRMEntries  []crud.CRM
-	Credentials []crud.Credentials
+	Notes       []interfaces.Note
+	Tasks       []interfaces.Tasks
+	Audits      []interfaces.Audits
+	CRMEntries  []interfaces.CRM
+	Credentials []interfaces.Credentials
 	Message     string
+	DB          interfaces.DatabaseOperations
 }
 
-var GlobalState AppState
+var GlobalState = &AppState{}
+
+func (appState *AppState) SetDB(db interfaces.DatabaseOperations) {
+	if db == nil {
+		log.Fatal("SetDB: Database instance cannot be nil")
+	}
+	appState.DB = db
+}
+
+func (appState *AppState) checkInitialization() error {
+	if appState.DB == nil {
+		return errors.New("database is not initialized")
+	}
+	if appState.Username == "" {
+		return errors.New("username is not set")
+	}
+	return nil
+}
 
 func (appState *AppState) FetchNotes() error {
-	if appState.Username == "" {
-		log.Println("FetchNotes: No username provided")
-		return nil
+	if err := appState.checkInitialization(); err != nil {
+		log.Println("FetchNotes:", err)
+		return err
 	}
-	notes, message, err := crud.GetNotes(appState.Username)
+
+	notes, message, err := appState.DB.GetNotes(appState.Username)
 	if err != nil {
 		log.Printf("Error getting notes: %v", err)
-		appState.Notes = []crud.Notes{}
+		appState.Notes = []interfaces.Note{}
 	} else {
 		appState.Notes = notes
-		return nil
 	}
 	log.Printf("FetchNotes message: %s", message)
 	appState.Message = message
@@ -39,14 +59,15 @@ func (appState *AppState) FetchNotes() error {
 }
 
 func (appState *AppState) FetchTasks() error {
-	if appState.Username == "" {
-		log.Println("FetchTasks: No username provided")
-		return nil
+	if err := appState.checkInitialization(); err != nil {
+		log.Println("FetchTasks:", err)
+		return err
 	}
-	tasks, _, err := crud.GetTasks(appState.Username)
+
+	tasks, _, err := appState.DB.GetTasks(appState.Username)
 	if err != nil {
 		log.Printf("Error getting tasks: %v", err)
-		appState.Tasks = []crud.Tasks{}
+		appState.Tasks = []interfaces.Tasks{}
 	} else {
 		appState.Tasks = tasks
 	}
@@ -54,14 +75,15 @@ func (appState *AppState) FetchTasks() error {
 }
 
 func (appState *AppState) FetchAudits() error {
-	if appState.Username == "" {
-		log.Println("FetchAudits: No username provided")
-		return nil
+	if err := appState.checkInitialization(); err != nil {
+		log.Println("FetchAudits:", err)
+		return err
 	}
-	audits, _, err := crud.GetAudits(appState.Username)
+
+	audits, _, err := appState.DB.GetAudits(appState.Username)
 	if err != nil {
 		log.Printf("Error getting audits: %v", err)
-		appState.Audits = []crud.Audits{}
+		appState.Audits = []interfaces.Audits{}
 	} else {
 		appState.Audits = audits
 	}
@@ -69,14 +91,15 @@ func (appState *AppState) FetchAudits() error {
 }
 
 func (appState *AppState) FetchCRMEntries() error {
-	if appState.Username == "" {
-		log.Println("FetchCRMEntries: No username provided")
-		return nil
+	if err := appState.checkInitialization(); err != nil {
+		log.Println("FetchCRMEntries:", err)
+		return err
 	}
-	crmEntries, _, err := crud.GetCRMEntries(appState.Username)
+
+	crmEntries, _, err := appState.DB.GetCRMEntries(appState.Username)
 	if err != nil {
 		log.Printf("Error getting CRM entries: %v", err)
-		appState.CRMEntries = []crud.CRM{}
+		appState.CRMEntries = []interfaces.CRM{}
 	} else {
 		appState.CRMEntries = crmEntries
 	}
@@ -84,14 +107,18 @@ func (appState *AppState) FetchCRMEntries() error {
 }
 
 func (appState *AppState) FetchCredentials() error {
-	if appState.Username == "" {
-		log.Println("FetchCredentials: No username provided")
-		return nil
+	if err := appState.checkInitialization(); err != nil {
+		log.Println("FetchCredentials:", err)
+		return err
 	}
-	credentials, message, err := crud.GetCredentials(appState.Username)
+	if appState.DB == nil {
+		return fmt.Errorf("database is not initialized")
+	}
+
+	credentials, message, err := appState.DB.GetCredentials(appState.Username)
 	if err != nil {
 		log.Printf("Error getting credentials: %v", err)
-		appState.Credentials = []crud.Credentials{}
+		appState.Credentials = []interfaces.Credentials{}
 	} else {
 		appState.Credentials = credentials
 	}
@@ -100,10 +127,21 @@ func (appState *AppState) FetchCredentials() error {
 	return err
 }
 
-func (appState *AppState) FetchAll() {
-	appState.FetchNotes()
-	appState.FetchTasks()
-	appState.FetchCredentials()
-	appState.FetchCRMEntries()
-	appState.FetchAudits()
+func (appState *AppState) FetchAll() error {
+	if err := appState.FetchNotes(); err != nil {
+		return err
+	}
+	if err := appState.FetchTasks(); err != nil {
+		return err
+	}
+	if err := appState.FetchCredentials(); err != nil {
+		return err
+	}
+	if err := appState.FetchCRMEntries(); err != nil {
+		return err
+	}
+	if err := appState.FetchAudits(); err != nil {
+		return err
+	}
+	return nil
 }

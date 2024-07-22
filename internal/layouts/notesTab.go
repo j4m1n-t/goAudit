@@ -11,7 +11,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
-	crud "github.com/j4m1n-t/goAudit/internal/crud"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
@@ -83,7 +84,7 @@ func CreateNotesTabContent(window fyne.Window, appState *state.AppState) fyne.Ca
 	)
 }
 
-func showNoteDialog(window fyne.Window, note *crud.Notes, appState *state.AppState) {
+func showNoteDialog(window fyne.Window, note *interfaces.Note, appState *state.AppState) {
 	var titleEntry *widget.Entry
 	var contentEntry *widget.Entry
 	var customDialog dialog.Dialog
@@ -144,7 +145,7 @@ func showNoteDialog(window fyne.Window, note *crud.Notes, appState *state.AppSta
 		if note != nil {
 			confirmDialog := dialog.NewConfirm("Confirm Delete", "Are you sure you want to delete this note?", func(confirm bool) {
 				if confirm {
-					err := crud.DeleteNote(note.ID, appState.Username)
+					err := crud.DeleteNote(note.ID)
 					if err != nil {
 						dialog.ShowError(err, window)
 						return

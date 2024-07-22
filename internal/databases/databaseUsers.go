@@ -1,22 +1,17 @@
-package crud
+package databases
 
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 
-	// External Imports
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	// Internal Imports
-	mySettings "github.com/j4m1n-t/goAudit/internal/functions"
 )
 
-func GetUserByAnyID(identifier interface{}) (Users, error) {
-	var user Users
+func GetUserByAnyID(identifier interface{}) (interfaces.Users, error) {
+	var user interfaces.Users
 	var query string
 	var args []interface{}
 
@@ -30,46 +25,19 @@ func GetUserByAnyID(identifier interface{}) (Users, error) {
                  FROM users WHERE username = $1`
 		args = []interface{}{v}
 	default:
-		return Users{}, fmt.Errorf("invalid identifier type")
+		return interfaces.Users{}, fmt.Errorf("invalid identifier type")
 	}
 
-	err := dbPool.QueryRow(context.Background(), query, args...).Scan(
+	err := DBPool.QueryRow(context.Background(), query, args...).Scan(
 		&user.ID, &user.Username, &user.UserID, &user.Email, &user.Status,
 		&user.CreatedAt, &user.UpdatedAt, &user.LastLogin)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return Users{}, fmt.Errorf("user not found")
+			return interfaces.Users{}, fmt.Errorf("user not found")
 		}
-		return Users{}, err
+		return interfaces.Users{}, err
 	}
 	return user, nil
-}
-
-func InitDBUsers() error {
-	SQLSettings := mySettings.LoadSQLSettings()
-
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		SQLSettings.User, SQLSettings.Password, SQLSettings.Server, SQLSettings.Port, SQLSettings.Database)
-
-	var err error
-	dbPool, err = pgxpool.New(context.Background(), connString)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %v", err)
-	}
-
-	err = dbPool.Ping(context.Background())
-	if err != nil {
-		dbPool.Close()
-		return fmt.Errorf("failed to ping database: %v", err)
-	}
-
-	log.Println("Successfully connected to database for users.")
-
-	if err := EnsureUserTableExists(); err != nil {
-		return fmt.Errorf("failed to ensure table exists: %v", err)
-	}
-
-	return nil
 }
 
 func EnsureUserTableExists() error {
@@ -85,15 +53,23 @@ func EnsureUserTableExists() error {
 		last_login TIMESTAMP WITH TIME ZONE
 	);`
 
-	_, err := dbPool.Exec(context.Background(), createTableSQL)
+	_, err := DBPool.Exec(context.Background(), createTableSQL)
 	if err != nil {
 		return fmt.Errorf("failed to create table: %v", err)
 	}
 	return nil
 }
 
-func Create(username, email, status string, user_id int, id int, created_at, updated_at, last_login time.Time) (Users, error) {
-	userItem := Users{Username: username, Email: email, Status: status, UserID: user_id, CreatedAt: created_at, UpdatedAt: updated_at, LastLogin: last_login}
+func Create(username, email, status string, userID int, createdAt, updatedAt, lastLogin time.Time) (interfaces.Users, error) {
+	userItem := interfaces.Users{
+		Username:  username,
+		Email:     email,
+		Status:    status,
+		UserID:    userID,
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+		LastLogin: lastLogin,
+	}
 	query := `INSERT INTO users (username, user_id, email, status, created_at, updated_at, last_login) 
               VALUES ($1, $2, $3, $4, $5, $6, $7) 
               ON CONFLICT (user_id) DO UPDATE SET
@@ -104,36 +80,51 @@ func Create(username, email, status string, user_id int, id int, created_at, upd
               last_login = EXCLUDED.last_login
               RETURNING id, username, user_id, email, status, created_at, updated_at, last_login`
 
-	err := dbPool.QueryRow(context.Background(), query,
+	err := DBPool.QueryRow(context.Background(), query,
 		userItem.Username, userItem.UserID, userItem.Email, userItem.Status,
 		userItem.CreatedAt, userItem.UpdatedAt, userItem.LastLogin).
 		Scan(&userItem.ID, &userItem.Username, &userItem.UserID, &userItem.Email,
 			&userItem.Status, &userItem.CreatedAt, &userItem.UpdatedAt, &userItem.LastLogin)
 
 	if err != nil {
-		return Users{}, err
+		return interfaces.Users{}, err
 	}
 
 	return userItem, nil
 }
-func GetOrCreateUser(username string) (Users, error) {
+
+func GetOrCreateUser(username string) (interfaces.Users, error) {
 	user, err := GetUserByAnyID(username)
 	if err != nil {
 		// User not found, create a new one
-		newUser := Users{
+		newUser := interfaces.Users{
 			Username:  username,
 			UserID:    generateUserID(),
 			Status:    "Active",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		createdUser, err := Create(newUser.Username, "", newUser.Status, newUser.UserID, 0, newUser.CreatedAt, newUser.UpdatedAt, time.Time{})
+		createdUser, err := Create(newUser.Username, "", newUser.Status, newUser.UserID, newUser.CreatedAt, newUser.UpdatedAt, time.Time{})
 		if err != nil {
-			return Users{}, fmt.Errorf("failed to create user: %v", err)
+			return interfaces.Users{}, fmt.Errorf("failed to create user: %v", err)
 		}
 		return createdUser, nil
 	}
 	return user, nil
+}
+
+func (dw DatabaseWrapper) GetUsers(username string) ([]interfaces.Users, string, error) {
+	var users []interfaces.Users
+	user, err := GetUserByAnyID(username)
+	if err != nil {
+		if err != nil {
+			return []interfaces.Users{}, fmt.Sprintf("user not found: %s", username), err
+		}
+		users = append(users, user)
+		return users, fmt.Sprintf("User %s", username), nil
+	}
+	users = append(users, user)
+	return users, fmt.Sprintf("User %s", username), nil
 }
 
 func generateUserID() int {
@@ -141,25 +132,23 @@ func generateUserID() int {
 	randomPart := rand.Intn(10000)
 	userID := (int(timestamp)%100000)*10000 + randomPart
 	return userID
-
 }
 
-// Do we want this? It seems like an error
-func GetAll() ([]Users, error) {
-	if dbPool == nil {
+func GetAll() ([]interfaces.Users, error) {
+	if DBPool == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 	query := `SELECT id, username, user_id, email, status, created_at, updated_at, last_login FROM users`
 
-	rows, err := dbPool.Query(context.Background(), query)
+	rows, err := DBPool.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var users []Users
+	var users []interfaces.Users
 	for rows.Next() {
-		var user Users
+		var user interfaces.Users
 		err := rows.Scan(&user.ID, &user.Username, &user.UserID, &user.Email, &user.Status, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin)
 		if err != nil {
 			return nil, err
@@ -170,42 +159,32 @@ func GetAll() ([]Users, error) {
 	return users, rows.Err()
 }
 
-func Get(id int) (Users, error) {
-	var user Users
+func Get(id int) (interfaces.Users, error) {
+	var user interfaces.Users
 	query := `SELECT id, username, user_id, email, status, created_at, updated_at, last_login
               FROM users WHERE id = $1`
-	err := dbPool.QueryRow(context.Background(), query, id).Scan(
+	err := DBPool.QueryRow(context.Background(), query, id).Scan(
 		&user.ID, &user.Username, &user.UserID, &user.Email, &user.Status, &user.CreatedAt, &user.UpdatedAt, &user.LastLogin)
 	if err != nil {
-		return Users{}, err
+		return interfaces.Users{}, err
 	}
 	return user, nil
 }
 
-func Update(user Users) (Users, error) {
+func Update(user interfaces.Users) (interfaces.Users, error) {
 	query := `UPDATE users SET username=$1, user_id=$2, email=$3, status=$4, updated_at=$5, last_login=$6 
               WHERE id=$7 RETURNING id, created_at, updated_at`
-	err := dbPool.QueryRow(context.Background(), query,
+	err := DBPool.QueryRow(context.Background(), query,
 		user.Username, user.UserID, user.Email, user.Status, time.Now(), user.LastLogin, user.ID).
 		Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		return Users{}, err
+		return interfaces.Users{}, err
 	}
 	return user, nil
 }
 
-// Reserve for administrative operations only
-func Delete(user Users) error {
+func Delete(user interfaces.Users) error {
 	query := `DELETE FROM users WHERE id=$1 AND user_id=$2`
-	_, err := dbPool.Exec(context.Background(), query, user.ID, user.UserID)
+	_, err := DBPool.Exec(context.Background(), query, user.ID, user.UserID)
 	return err
 }
-
-// Get by ID
-//user, err := GetUserByAnyID(1)
-
-// Get by UserID
-//user, err := GetUserByAnyID(1001)
-
-// Get by Username
-//user, err := GetUserByAnyID("johndoe")

@@ -1,4 +1,4 @@
-package crud
+package databases
 
 import (
 	"context"
@@ -6,37 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	mySettings "github.com/j4m1n-t/goAudit/internal/functions"
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 )
-
-func InitDBTasks() error {
-	SQLSettings := mySettings.LoadSQLSettings()
-
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		SQLSettings.User, SQLSettings.Password, SQLSettings.Server, SQLSettings.Port, SQLSettings.Database)
-
-	var err error
-	dbPool, err = pgxpool.New(context.Background(), connString)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %v", err)
-	}
-
-	err = dbPool.Ping(context.Background())
-	if err != nil {
-		dbPool.Close()
-		return fmt.Errorf("failed to ping database: %v", err)
-	}
-
-	log.Println("Successfully connected to database for tasks.")
-
-	if err := EnsureTaskTableExists(); err != nil {
-		return fmt.Errorf("failed to ensure task table exists: %v", err)
-	}
-
-	return nil
-}
 
 func EnsureTaskTableExists() error {
 	createTableSQL := `
@@ -55,7 +26,7 @@ func EnsureTaskTableExists() error {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );`
 
-	_, err := dbPool.Exec(context.Background(), createTableSQL)
+	_, err := DBPool.Exec(context.Background(), createTableSQL)
 	if err != nil {
 		return fmt.Errorf("failed to create tasks table: %v", err)
 	}
@@ -63,37 +34,37 @@ func EnsureTaskTableExists() error {
 	return nil
 }
 
-func CreateTask(task Tasks) (Tasks, error) {
+func CreateTask(task interfaces.Tasks) (interfaces.Tasks, error) {
 	query := `INSERT INTO tasks (title, description, status, priority, notes, due_date, completed, user_id, username)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
               RETURNING id, created_at, updated_at`
 
-	err := dbPool.QueryRow(context.Background(), query,
+	err := DBPool.QueryRow(context.Background(), query,
 		task.Title, task.Description, task.Status, task.Priority, task.Notes, task.DueDate, task.Completed, task.UserID, task.Username).
 		Scan(&task.ID, &task.CreatedAt, &task.UpdatedAt)
 
 	if err != nil {
-		return Tasks{}, err
+		return interfaces.Tasks{}, err
 	}
 
 	return task, nil
 }
 
-func GetTasks(username string) ([]Tasks, string, error) {
+func (dw *DatabaseWrapper) GetTasks(username string) ([]interfaces.Tasks, string, error) {
 	query := `SELECT id, title, description, status, priority, notes, due_date, completed, user_id, username, created_at, updated_at
               FROM tasks
               WHERE username = $1
               ORDER BY due_date ASC`
 
-	rows, err := dbPool.Query(context.Background(), query, username)
+	rows, err := DBPool.Query(context.Background(), query, username)
 	if err != nil {
 		return nil, fmt.Sprintf("Error querying tasks: %v", err), err
 	}
 	defer rows.Close()
 
-	var tasks []Tasks
+	var tasks []interfaces.Tasks
 	for rows.Next() {
-		var task Tasks
+		var task interfaces.Tasks
 		err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status, &task.Priority, &task.Notes,
 			&task.DueDate, &task.Completed, &task.UserID, &task.Username, &task.CreatedAt, &task.UpdatedAt)
 		if err != nil {
@@ -114,16 +85,16 @@ func GetTasks(username string) ([]Tasks, string, error) {
 	return tasks, "Tasks fetched successfully", nil
 }
 
-func UpdateTask(task Tasks) (Tasks, error) {
+func UpdateTask(task interfaces.Tasks) (interfaces.Tasks, error) {
 	query := `UPDATE tasks SET title=$1, description=$2, status=$3, priority=$4, notes=$5, due_date=$6, completed=$7, updated_at=$8
               WHERE id=$9 RETURNING id, created_at, updated_at`
 
-	err := dbPool.QueryRow(context.Background(), query,
+	err := DBPool.QueryRow(context.Background(), query,
 		task.Title, task.Description, task.Status, task.Priority, task.Notes, task.DueDate, task.Completed, time.Now(), task.ID).
 		Scan(&task.ID, &task.CreatedAt, &task.UpdatedAt)
 
 	if err != nil {
-		return Tasks{}, err
+		return interfaces.Tasks{}, err
 	}
 
 	return task, nil
@@ -131,6 +102,6 @@ func UpdateTask(task Tasks) (Tasks, error) {
 
 func DeleteTask(id int, username string) error {
 	query := `DELETE FROM tasks WHERE id=$1 AND username=$2`
-	_, err := dbPool.Exec(context.Background(), query, id, username)
+	_, err := DBPool.Exec(context.Background(), query, id, username)
 	return err
 }

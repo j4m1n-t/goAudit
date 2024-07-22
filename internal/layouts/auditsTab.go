@@ -1,6 +1,7 @@
 package layouts
 
 import (
+	"fmt"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -9,7 +10,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/crud"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
@@ -62,7 +64,7 @@ func CreateAuditsTabContent(window fyne.Window) fyne.CanvasObject {
 	)
 }
 
-func showAuditDialog(window fyne.Window, audit *crud.Audits) {
+func showAuditDialog(window fyne.Window, audit *interfaces.Audits) {
 	var actionEntry, auditTypeEntry, auditAreaEntry, notesEntry, assignedUserEntry, firmEntry *widget.Entry
 	var completedCheck *widget.Check
 
@@ -99,7 +101,7 @@ func showAuditDialog(window fyne.Window, audit *crud.Audits) {
 
 	saveButton := widget.NewButton("Save", func() {
 		if audit == nil {
-			newAudit := crud.Audits{
+			newAudit := interfaces.Audits{
 				Action:       actionEntry.Text,
 				AuditType:    auditTypeEntry.Text,
 				AuditArea:    auditAreaEntry.Text,
@@ -177,7 +179,12 @@ func showAuditDialog(window fyne.Window, audit *crud.Audits) {
 }
 
 func refreshAudits(window fyne.Window) {
-	audits, _, err := crud.GetAudits(state.GlobalState.Username)
+	if state.GlobalState.DB == nil {
+		dialog.ShowError(fmt.Errorf("database is not initialized"), window)
+		return
+	}
+
+	audits, _, err := state.GlobalState.DB.GetAudits(state.GlobalState.Username)
 	if err != nil {
 		dialog.ShowError(err, window)
 		return

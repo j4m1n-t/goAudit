@@ -1,13 +1,16 @@
 package layouts
 
 import (
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/crud"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
@@ -60,7 +63,7 @@ func CreateCRMTabContent(window fyne.Window) fyne.CanvasObject {
 	)
 }
 
-func showCRMDialog(window fyne.Window, crm *crud.CRM) {
+func showCRMDialog(window fyne.Window, crm *interfaces.CRM) {
 	var nameEntry, emailEntry, phoneEntry, companyEntry *widget.Entry
 	var notesEntry *widget.Entry
 	var openCheck *widget.Check
@@ -94,7 +97,7 @@ func showCRMDialog(window fyne.Window, crm *crud.CRM) {
 
 	saveButton := widget.NewButton("Save", func() {
 		if crm == nil {
-			newCRM := crud.CRM{
+			newCRM := interfaces.CRM{
 				Name:     nameEntry.Text,
 				Email:    emailEntry.Text,
 				Phone:    phoneEntry.Text,
@@ -165,7 +168,12 @@ func showCRMDialog(window fyne.Window, crm *crud.CRM) {
 }
 
 func refreshCRM(window fyne.Window) {
-	crmEntries, _, err := crud.GetCRMEntries(state.GlobalState.Username)
+	if state.GlobalState.DB == nil {
+		dialog.ShowError(fmt.Errorf("database is not initialized"), window)
+		return
+	}
+
+	crmEntries, _, err := state.GlobalState.DB.GetCRMEntries(state.GlobalState.Username)
 	if err != nil {
 		dialog.ShowError(err, window)
 		return

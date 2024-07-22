@@ -1,4 +1,4 @@
-package crud
+package databases
 
 import (
 	"context"
@@ -6,37 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	// Internal Imports
-	mySettings "github.com/j4m1n-t/goAudit/internal/functions"
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 )
-
-func InitDBAudits() error {
-	SQLSettings := mySettings.LoadSQLSettings()
-
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
-		SQLSettings.User, SQLSettings.Password, SQLSettings.Server, SQLSettings.Port, SQLSettings.Database)
-
-	var err error
-	dbPool, err = pgxpool.New(context.Background(), connString)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %v", err)
-	}
-
-	err = dbPool.Ping(context.Background())
-	if err != nil {
-		dbPool.Close()
-		return fmt.Errorf("failed to ping database: %v", err)
-	}
-
-	log.Println("Successfully connected to database for audits.")
-
-	if err := EnsureAuditTableExists(); err != nil {
-		return fmt.Errorf("failed to ensure audit table exists: %v", err)
-	}
-
-	return nil
-}
 
 func EnsureAuditTableExists() error {
 	createTableSQL := `
@@ -58,7 +29,7 @@ func EnsureAuditTableExists() error {
         firm TEXT
     );`
 
-	_, err := dbPool.Exec(context.Background(), createTableSQL)
+	_, err := DBPool.Exec(context.Background(), createTableSQL)
 	if err != nil {
 		return fmt.Errorf("failed to create audits table: %v", err)
 	}
@@ -66,38 +37,38 @@ func EnsureAuditTableExists() error {
 	return nil
 }
 
-func CreateAudit(audit Audits) (Audits, error) {
+func CreateAudit(audit interfaces.Audits) (interfaces.Audits, error) {
 	query := `INSERT INTO audits (action, audit_id, audit_type, audit_area, notes, assigned_user, completed, user_id, username, additional_users, firm)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
               RETURNING id, created_at, updated_at`
 
-	err := dbPool.QueryRow(context.Background(), query,
+	err := DBPool.QueryRow(context.Background(), query,
 		audit.Action, audit.AuditID, audit.AuditType, audit.AuditArea, audit.Notes, audit.AssignedUser, audit.Completed,
 		audit.UserID, audit.Username, audit.AdditionalUsers, audit.Firm).
 		Scan(&audit.ID, &audit.CreatedAt, &audit.UpdatedAt)
 
 	if err != nil {
-		return Audits{}, err
+		return interfaces.Audits{}, err
 	}
 
 	return audit, nil
 }
 
-func GetAudits(username string) ([]Audits, string, error) {
+func (dw *DatabaseWrapper) GetAudits(username string) ([]interfaces.Audits, string, error) {
 	query := `SELECT id, action, audit_id, audit_type, audit_area, created_at, updated_at, notes, assigned_user, completed_at, completed, user_id, username, additional_users, firm
               FROM audits
               WHERE username = $1 OR $1 = ANY(additional_users)
               ORDER BY created_at DESC`
 
-	rows, err := dbPool.Query(context.Background(), query, username)
+	rows, err := DBPool.Query(context.Background(), query, username)
 	if err != nil {
 		return nil, fmt.Sprintf("Error querying audits: %v", err), err
 	}
 	defer rows.Close()
 
-	var audits []Audits
+	var audits []interfaces.Audits
 	for rows.Next() {
-		var audit Audits
+		var audit interfaces.Audits
 		err := rows.Scan(&audit.ID, &audit.Action, &audit.AuditID, &audit.AuditType, &audit.AuditArea, &audit.CreatedAt,
 			&audit.UpdatedAt, &audit.Notes, &audit.AssignedUser, &audit.CompletedAt, &audit.Completed, &audit.UserID,
 			&audit.Username, &audit.AdditionalUsers, &audit.Firm)
@@ -119,18 +90,18 @@ func GetAudits(username string) ([]Audits, string, error) {
 	return audits, "Audits fetched successfully", nil
 }
 
-func UpdateAudit(audit Audits) (Audits, error) {
+func UpdateAudit(audit interfaces.Audits) (interfaces.Audits, error) {
 	query := `UPDATE audits SET action=$1, audit_id=$2, audit_type=$3, audit_area=$4, notes=$5, assigned_user=$6,
               completed_at=$7, completed=$8, additional_users=$9, firm=$10, updated_at=$11
               WHERE id=$12 RETURNING id, created_at, updated_at`
 
-	err := dbPool.QueryRow(context.Background(), query,
+	err := DBPool.QueryRow(context.Background(), query,
 		audit.Action, audit.AuditID, audit.AuditType, audit.AuditArea, audit.Notes, audit.AssignedUser,
 		audit.CompletedAt, audit.Completed, audit.AdditionalUsers, audit.Firm, time.Now(), audit.ID).
 		Scan(&audit.ID, &audit.CreatedAt, &audit.UpdatedAt)
 
 	if err != nil {
-		return Audits{}, err
+		return interfaces.Audits{}, err
 	}
 
 	return audit, nil
@@ -138,6 +109,6 @@ func UpdateAudit(audit Audits) (Audits, error) {
 
 func DeleteAudit(id int, username string) error {
 	query := `DELETE FROM audits WHERE id=$1 AND username=$2`
-	_, err := dbPool.Exec(context.Background(), query, id, username)
+	_, err := DBPool.Exec(context.Background(), query, id, username)
 	return err
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
-	crud "github.com/j4m1n-t/goAudit/internal/CRUD"
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
 	myFunctions "github.com/j4m1n-t/goAudit/internal/functions"
 	myLayout "github.com/j4m1n-t/goAudit/internal/layouts"
@@ -96,7 +95,7 @@ func main() {
 	log.Printf("Config directory: %s", configDir)
 	configPath = filepath.Join(configDir, "goAudit", "config.json")
 	// Initialize connection to db server(s)
-	crud.InitDBs()
+	myFunctions.InitDBs()
 	// Set the default app layout
 	myApp := app.New()
 	myWindow := myApp.NewWindow("goAudit")
@@ -160,11 +159,16 @@ func main() {
 				return
 			}
 			state.GlobalState.Username = username.Text
-			state.GlobalState.FetchAll()
+			err = state.GlobalState.FetchAll()
+			if err != nil {
+				dialog.ShowError(err, myWindow)
+				fyne.LogError("Error fetching information from database(s).", err)
+				return
+			}
 			log.Printf("Notes fetched for user: %s: %+v", state.GlobalState.Username, state.GlobalState.Notes)
-			var appState *state.AppState
-			myFunctions.UpdateTabsForUser(myWindow, appState)
+			// need to update to include appstate
 			isAdmin := myFunctions.CheckIfAdmin(state.GlobalState.LDAPConn, username.Text)
+			myFunctions.UpdateTabsForUser(isAdmin, myWindow)
 			myFunctions.UpdateMenuForUser(isAdmin, myWindow)
 			tabs.SelectIndex(1)
 		},
@@ -177,16 +181,15 @@ func main() {
 	notesTab = myLayout.CreatePlaceholderNotesTab()
 	tasksTab = myLayout.CreatePlaceholderTaskTab()
 	tabs = container.NewAppTabs(
-		container.NewTabItem("Admin", adminTab),
+		container.NewTabItem("Login", loginForm),
 		container.NewTabItem("Audits", auditTab),
 		container.NewTabItem("CRM", crmTab),
 		container.NewTabItem("Credentials", credentialsTab),
-		container.NewTabItem("Login", loginForm),
 		container.NewTabItem("Notes", notesTab),
 		container.NewTabItem("Tasks", tasksTab),
 	)
 	tabs.SetTabLocation(container.TabLocationTop)
-	tabs.SelectIndex(4)
+	tabs.SelectIndex(0)
 	myWindow.SetContent(tabs)
 
 	// Show and run the application

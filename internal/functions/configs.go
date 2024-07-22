@@ -22,6 +22,7 @@ import (
 
 	// Internal Imports
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
 	layouts "github.com/j4m1n-t/goAudit/internal/layouts"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
@@ -341,19 +342,82 @@ func CheckIfAdmin(conn *myAuth.LDAPConnection, username string) bool {
 	return false
 }
 
-func UpdateTabsForUser(window fyne.Window, appState *state.AppState) {
+func UpdateTabsForUser(isAdmin bool, window fyne.Window) {
 	var tabs *container.AppTabs
-	// Set get content for tabs
-	auditsTab := layouts.CreateAuditsTabContent(window)
-	credentialsTab := layouts.CreateCredentialsTabContent(window, appState)
-	crmTab := layouts.CreateCRMTabContent(window)
-	notesTab := layouts.CreateNotesTabContent(window, appState)
-	tasksTab := layouts.CreateTasksTabContent(window)
-	// Set the content for tabs
-	tabs.Items[2].Content = auditsTab
-	tabs.Items[3].Content = credentialsTab
-	tabs.Items[4].Content = crmTab
-	tabs.Items[5].Content = notesTab
-	tabs.Items[6].Content = tasksTab
 
+	// Set get content for tabs
+	adminTab := layouts.CreateAdminTabContent(window)
+	auditsTab := layouts.CreateAuditsTabContent(window)
+	credentialsTab := layouts.CreateCredentialsTabContent(window, state.GlobalState)
+	crmTab := layouts.CreateCRMTabContent(window)
+	notesTab := layouts.CreateNotesTabContent(window, state.GlobalState)
+	tasksTab := layouts.CreateTasksTabContent(window)
+
+	if isAdmin {
+		tabs = container.NewAppTabs(
+			container.NewTabItem("Admin", adminTab),
+			container.NewTabItem("Audits", auditsTab),
+			container.NewTabItem("Credentials", credentialsTab),
+			container.NewTabItem("CRM", crmTab),
+			container.NewTabItem("Notes", notesTab),
+			container.NewTabItem("Tasks", tasksTab),
+		)
+	} else {
+		tabs = container.NewAppTabs(
+			container.NewTabItem("Audits", auditsTab),
+			container.NewTabItem("Credentials", credentialsTab),
+			container.NewTabItem("CRM", crmTab),
+			container.NewTabItem("Notes", notesTab),
+			container.NewTabItem("Tasks", tasksTab),
+		)
+	}
+
+	window.SetContent(tabs)
+}
+
+func InitDBs() error {
+	dbWrapper, err := crud.InitDB()
+	if err != nil {
+		log.Printf("Error initializing database: %v", err)
+		return err
+	}
+	state.GlobalState.SetDB(dbWrapper)
+	EnsureTablesExists()
+	return nil
+}
+
+func EnsureTablesExists() error {
+	var err error
+
+	if err = crud.EnsureAuditTableExists(); err != nil {
+		log.Printf("Error ensuring audit table exists: %v", err)
+		return err
+	}
+
+	if err = crud.EnsureCredentialsTableExists(); err != nil {
+		log.Printf("Error ensuring credentials table exists: %v", err)
+		return err
+	}
+
+	if err = crud.EnsureCRMTableExists(); err != nil {
+		log.Printf("Error ensuring CRM table exists: %v", err)
+		return err
+	}
+
+	if err = crud.EnsureNotesTableExists(); err != nil {
+		log.Printf("Error ensuring notes table exists: %v", err)
+		return err
+	}
+
+	if err = crud.EnsureTaskTableExists(); err != nil {
+		log.Printf("Error ensuring task table exists: %v", err)
+		return err
+	}
+
+	if err = crud.EnsureUserTableExists(); err != nil {
+		log.Printf("Error ensuring user table exists: %v", err)
+		return err
+	}
+
+	return nil
 }

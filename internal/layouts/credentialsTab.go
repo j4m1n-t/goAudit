@@ -3,6 +3,7 @@ package layouts
 import (
 	"errors"
 	"log"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -10,7 +11,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/crud"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
@@ -75,34 +77,26 @@ func CreateCredentialsTabContent(window fyne.Window, appState *state.AppState) f
 		credentialsList,
 	)
 }
-func showCredentialDialog(window fyne.Window, credential *crud.Credentials, appState *state.AppState) {
-	var loginNameEntry *widget.Entry
-	var passwordEntry *widget.Entry
-	var siteEntry *widget.Entry
-	var programEntry *widget.Entry
-	var rememberMeCheck *widget.Check
-	var customDialog dialog.Dialog
 
-	loginNameEntry = widget.NewEntry()
+func showCredentialDialog(window fyne.Window, credential *interfaces.Credentials, appState *state.AppState) {
+	var customDialog dialog.Dialog
+	loginNameEntry := widget.NewEntry()
 	loginNameEntry.SetPlaceHolder("Enter login name")
 
-	passwordEntry = widget.NewPasswordEntry()
+	passwordEntry := widget.NewPasswordEntry()
 	passwordEntry.SetPlaceHolder("Enter password")
 
-	siteEntry = widget.NewEntry()
+	siteEntry := widget.NewEntry()
 	siteEntry.SetPlaceHolder("Enter site")
 
-	programEntry = widget.NewEntry()
+	programEntry := widget.NewEntry()
 	programEntry.SetPlaceHolder("Enter program")
-
-	rememberMeCheck = widget.NewCheck("Remember Me", nil)
 
 	if credential != nil {
 		loginNameEntry.SetText(credential.LoginName)
-		passwordEntry.SetText(credential.Password)
+		passwordEntry.SetText(credential.LoginPass)
 		siteEntry.SetText(credential.Site)
 		programEntry.SetText(credential.Program)
-		rememberMeCheck.SetChecked(credential.RememberMe)
 	}
 
 	saveButton := widget.NewButton("Save", func() {
@@ -112,25 +106,26 @@ func showCredentialDialog(window fyne.Window, credential *crud.Credentials, appS
 		}
 
 		if credential == nil {
-			newCredential, err := crud.CreateCredential(
-				loginNameEntry.Text,
-				passwordEntry.Text,
-				siteEntry.Text,
-				programEntry.Text,
-				appState.Username,
-				rememberMeCheck.Checked,
-			)
+			newCredential := interfaces.Credentials{
+				LoginName: loginNameEntry.Text,
+				LoginPass: passwordEntry.Text,
+				Site:      siteEntry.Text,
+				Program:   programEntry.Text,
+				Owner:     appState.Username,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+			createdCredential, err := crud.CreateCredential(newCredential)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
 			}
-			log.Printf("Created new credential with ID: %d for user: %s", newCredential.ID, appState.Username)
+			log.Printf("Created new credential with ID: %d for user: %s", createdCredential.ID, appState.Username)
 		} else {
 			credential.LoginName = loginNameEntry.Text
-			credential.Password = passwordEntry.Text
+			credential.LoginPass = passwordEntry.Text
 			credential.Site = siteEntry.Text
 			credential.Program = programEntry.Text
-			credential.RememberMe = rememberMeCheck.Checked
 			updatedCredential, err := crud.UpdateCredential(*credential)
 			if err != nil {
 				dialog.ShowError(err, window)
@@ -178,7 +173,6 @@ func showCredentialDialog(window fyne.Window, credential *crud.Credentials, appS
 		siteEntry,
 		widget.NewLabel("Program"),
 		programEntry,
-		rememberMeCheck,
 	)
 
 	paddedContent := container.NewPadded(content)
