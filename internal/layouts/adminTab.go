@@ -1,13 +1,16 @@
 package layouts
 
 import (
+	// Standard Library
 	"fmt"
 
+	// Fyne Imports
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 
+	// Internal Imports
 	crud "github.com/j4m1n-t/goAudit/internal/databases"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
@@ -98,12 +101,14 @@ func showDeleteDialog(window fyne.Window, itemType string, deleteFunc func(int) 
 	}, window)
 }
 
+var dw *crud.DatabaseWrapper
+
 func deleteNote(id int) error {
-	return crud.DeleteNote(id)
+	return dw.DeleteNote(id)
 }
 
 func deleteTask(id int) error {
-	return crud.DeleteTask(id, state.GlobalState.Username)
+	return dw.DeleteTask(id, state.GlobalState.Username)
 }
 
 func deleteUser(id int) error {
@@ -112,9 +117,9 @@ func deleteUser(id int) error {
 }
 
 func deleteCRM(id int) error {
-	return crud.DeleteCRMEntry(id, state.GlobalState.Username)
+	return dw.DeleteCRMEntry(id, state.GlobalState.Username)
 }
 
 func deleteAudit(id int) error {
-	return crud.DeleteAudit(id, state.GlobalState.Username)
+	return dw.DeleteAudit(id, state.GlobalState.Username)
 }

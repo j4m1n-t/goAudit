@@ -21,8 +21,8 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
-	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
 	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	"github.com/j4m1n-t/goAudit/internal/interfaces"
 	layouts "github.com/j4m1n-t/goAudit/internal/layouts"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
@@ -289,8 +289,8 @@ func UpdateMenuForUser(isAdmin bool, window fyne.Window) {
 	window.SetMainMenu(mainMenu)
 }
 
-func CheckIfAdmin(conn *myAuth.LDAPConnection, username string) bool {
-	if conn == nil || conn.Conn == nil {
+func CheckIfAdmin(conn *interfaces.LDAPConnection, username string) bool {
+	if conn == nil {
 		log.Println("LDAP connection is nil")
 		return false
 	}
@@ -342,37 +342,69 @@ func CheckIfAdmin(conn *myAuth.LDAPConnection, username string) bool {
 	return false
 }
 
-func UpdateTabsForUser(isAdmin bool, window fyne.Window) {
+func UpdateTabsForUser(isAdmin bool, window fyne.Window, appState *state.AppState) {
 	var tabs *container.AppTabs
+	var tabItems []*container.TabItem
 
-	// Set get content for tabs
-	adminTab := layouts.CreateAdminTabContent(window)
-	auditsTab := layouts.CreateAuditsTabContent(window)
-	credentialsTab := layouts.CreateCredentialsTabContent(window, state.GlobalState)
-	crmTab := layouts.CreateCRMTabContent(window)
-	notesTab := layouts.CreateNotesTabContent(window, state.GlobalState)
-	tasksTab := layouts.CreateTasksTabContent(window)
-
-	if isAdmin {
-		tabs = container.NewAppTabs(
-			container.NewTabItem("Admin", adminTab),
-			container.NewTabItem("Audits", auditsTab),
-			container.NewTabItem("Credentials", credentialsTab),
-			container.NewTabItem("CRM", crmTab),
-			container.NewTabItem("Notes", notesTab),
-			container.NewTabItem("Tasks", tasksTab),
-		)
-	} else {
-		tabs = container.NewAppTabs(
-			container.NewTabItem("Audits", auditsTab),
-			container.NewTabItem("Credentials", credentialsTab),
-			container.NewTabItem("CRM", crmTab),
-			container.NewTabItem("Notes", notesTab),
-			container.NewTabItem("Tasks", tasksTab),
-		)
+	// Helper function to create tab items safely
+	createTabItem := func(name string, contentFunc func(fyne.Window) fyne.CanvasObject) *container.TabItem {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("Panic in creating %s tab: %v", name, r)
+			}
+		}()
+		content := contentFunc(window)
+		if content == nil {
+			log.Printf("Warning: Content for %s tab is nil", name)
+			return nil
+		}
+		return container.NewTabItem(name, content)
 	}
 
-	window.SetContent(tabs)
+	// Create common tab items
+	auditsTab := createTabItem("Audits", layouts.CreateAuditsTabContent)
+	credsTab := createTabItem("Credentials", layouts.CreateCredentialsTabContent)
+	crmTab := createTabItem("CRM", layouts.CreateCRMTabContent)
+	notesTab := createTabItem("Notes", func(w fyne.Window) fyne.CanvasObject {
+		return layouts.CreateNotesTabContent(w, state.GlobalState)
+	})
+	tasksTab := createTabItem("Tasks", layouts.CreateTasksTabContent)
+
+	// Add common tabs
+	for _, tab := range []*container.TabItem{auditsTab, credsTab, crmTab, notesTab, tasksTab} {
+		if tab != nil {
+			tabItems = append(tabItems, tab)
+		}
+	}
+
+	// Add admin tab if user is admin
+	if isAdmin {
+		adminTab := createTabItem("Admin", layouts.CreateAdminTabContent)
+		if adminTab != nil {
+			// Insert admin tab at the beginning
+			tabItems = append([]*container.TabItem{adminTab}, tabItems...)
+		}
+	}
+
+	// Create AppTabs with valid items
+	if len(tabItems) > 0 {
+		tabs = container.NewAppTabs(tabItems...)
+		window.SetContent(tabs)
+	} else {
+		log.Println("Error: No valid tabs to display")
+		errorLabel := widget.NewLabel("Error: Unable to load application tabs")
+		window.SetContent(errorLabel)
+	}
+
+	// Add credentials tab if master password is authenticated
+	if state.GlobalState.CredentialAuthStatus {
+		credentialsTab := createTabItem("Credentials", func(w fyne.Window) fyne.CanvasObject {
+			return layouts.CreateCredentialsTabContent(w)
+		})
+		if credentialsTab != nil {
+			tabs.Append(credentialsTab)
+		}
+	}
 }
 
 func InitDBs() error {

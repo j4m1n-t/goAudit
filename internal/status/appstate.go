@@ -1,28 +1,44 @@
 package state
 
 import (
+	// Standard Library
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 
-	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	// Fyne Imports
+	"fyne.io/fyne/v2"
+	// External Imports
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
+
+	// Internal Imports
 	"github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
 type AppState struct {
-	LDAPConn    *myAuth.LDAPConnection
-	Username    string
-	Notes       []interfaces.Note
-	Tasks       []interfaces.Tasks
-	Audits      []interfaces.Audits
-	CRMEntries  []interfaces.CRM
-	Credentials []interfaces.Credentials
-	Message     string
-	DB          interfaces.DatabaseOperations
+	LDAPConn             *interfaces.LDAPConnection
+	Username             string
+	UserID               int
+	CredentialAuthStatus bool
+	CredentialUsername   string
+	MPPresent            bool
+	Notes                []interfaces.Note
+	Tasks                []interfaces.Tasks
+	Audits               []interfaces.Audits
+	CRMEntries           []interfaces.CRM
+	Credentials          []interfaces.Credentials
+	Message              string
+	DB                   interfaces.DatabaseOperations
+	lw                   interfaces.LDAPOperations
+	window               fyne.Window
 }
 
 var GlobalState = &AppState{}
 
+// Global State
 func (appState *AppState) SetDB(db interfaces.DatabaseOperations) {
 	if db == nil {
 		log.Fatal("SetDB: Database instance cannot be nil")
@@ -30,6 +46,42 @@ func (appState *AppState) SetDB(db interfaces.DatabaseOperations) {
 	appState.DB = db
 }
 
+func (appState *AppState) SetLDAP(lw interfaces.LDAPOperations) {
+	if lw == nil {
+		log.Fatal("SetDB: Database instance cannot be nil")
+	}
+	appState.lw = lw
+}
+
+func (appState *AppState) SetWindow(window fyne.Window) {
+	appState.window = window
+}
+
+func (appState *AppState) SetMPPresent() {
+	appState.MPPresent = false
+}
+func (appState *AppState) SetMasterPassword(Username string, password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	mu.Lock()
+	masterPasswords[Username] = hashedPassword
+	mu.Unlock()
+
+	// Update the database
+	_, err = dbPool.Exec(context.Background(),
+		"UPDATE credentials SET master_password = $1 WHERE user_id = $2",
+		hashedPassword, Username)
+	if err != nil {
+		return fmt.Errorf("failed to update master password in database: %v", err)
+	}
+
+	return nil
+}
+
+// Database
 func (appState *AppState) checkInitialization() error {
 	if appState.DB == nil {
 		return errors.New("database is not initialized")
@@ -40,6 +92,7 @@ func (appState *AppState) checkInitialization() error {
 	return nil
 }
 
+// Database fetch
 func (appState *AppState) FetchNotes() error {
 	if err := appState.checkInitialization(); err != nil {
 		log.Println("FetchNotes:", err)
@@ -144,4 +197,50 @@ func (appState *AppState) FetchAll() error {
 		return err
 	}
 	return nil
+}
+
+// Credentials
+func (appState *AppState) SetCredentialAuthenticated(status bool, username string) {
+	appState.CredentialAuthStatus = status
+	appState.CredentialUsername = username
+}
+
+func (appState *AppState) IsCredentialAuthenticated() (bool, string) {
+	return appState.CredentialAuthStatus, appState.CredentialUsername
+}
+
+func (appState *AppState) ClearCredentialAuthentication() {
+	appState.CredentialAuthStatus = false
+	appState.CredentialUsername = ""
+}
+
+func (s *AppState) IsMasterPasswordSet() bool {
+	// Logic to check if the master password is set
+	// This could be checking a database or a config file
+	return s.CredentialAuthStatus // Adjust according to your logic
+}
+
+var (
+	masterPasswords = make(map[string][]byte)
+	mu              sync.RWMutex
+	dbPool          *pgxpool.Pool
+)
+
+func (s *AppState) VerifyMasterPassword(userID string, password string) bool {
+	mu.RLock()
+	hashedPassword, exists := masterPasswords[userID]
+	mu.RUnlock()
+
+	if !exists {
+		// If not in memory, check the database
+		var dbHashedPassword []byte
+		err := dbPool.QueryRow(context.Background(),
+			"SELECT master_password FROM credentials WHERE user_id = $1", userID).Scan(&dbHashedPassword)
+		if err != nil {
+			return false
+		}
+		hashedPassword = dbHashedPassword
+	}
+
+	return bcrypt.CompareHashAndPassword(hashedPassword, []byte(password)) == nil
 }

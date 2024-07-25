@@ -1,11 +1,13 @@
 package databases
 
 import (
+	// Standard Library
 	"context"
 	"fmt"
 	"log"
 	"time"
 
+	// Internal Imports
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
@@ -34,7 +36,7 @@ func EnsureTaskTableExists() error {
 	return nil
 }
 
-func CreateTask(task interfaces.Tasks) (interfaces.Tasks, error) {
+func (dw *DatabaseWrapper) CreateTask(task interfaces.Tasks) (interfaces.Tasks, error) {
 	query := `INSERT INTO tasks (title, description, status, priority, notes, due_date, completed, user_id, username)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
               RETURNING id, created_at, updated_at`
@@ -85,7 +87,7 @@ func (dw *DatabaseWrapper) GetTasks(username string) ([]interfaces.Tasks, string
 	return tasks, "Tasks fetched successfully", nil
 }
 
-func UpdateTask(task interfaces.Tasks) (interfaces.Tasks, error) {
+func (dw *DatabaseWrapper) UpdateTask(task interfaces.Tasks) (interfaces.Tasks, error) {
 	query := `UPDATE tasks SET title=$1, description=$2, status=$3, priority=$4, notes=$5, due_date=$6, completed=$7, updated_at=$8
               WHERE id=$9 RETURNING id, created_at, updated_at`
 
@@ -100,7 +102,7 @@ func UpdateTask(task interfaces.Tasks) (interfaces.Tasks, error) {
 	return task, nil
 }
 
-func DeleteTask(id int, username string) error {
+func (dw *DatabaseWrapper) DeleteTask(id int, username string) error {
 	query := `DELETE FROM tasks WHERE id=$1 AND username=$2`
 	_, err := DBPool.Exec(context.Background(), query, id, username)
 	return err

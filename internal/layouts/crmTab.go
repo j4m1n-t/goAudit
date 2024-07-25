@@ -1,15 +1,18 @@
 package layouts
 
 import (
+	// Standard Library
 	"fmt"
 
+	// Fyne Imports
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	// Internal Imports
+
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
@@ -106,7 +109,7 @@ func showCRMDialog(window fyne.Window, crm *interfaces.CRM) {
 				Open:     openCheck.Checked,
 				Username: state.GlobalState.Username,
 			}
-			_, err := crud.CreateCRMEntry(newCRM)
+			_, err := dw.CreateCRMEntry(newCRM)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -118,7 +121,7 @@ func showCRMDialog(window fyne.Window, crm *interfaces.CRM) {
 			crm.Company = companyEntry.Text
 			crm.Notes = []string{notesEntry.Text}
 			crm.Open = openCheck.Checked
-			_, err := crud.UpdateCRMEntry(*crm)
+			_, err := dw.UpdateCRMEntry(*crm)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -134,7 +137,7 @@ func showCRMDialog(window fyne.Window, crm *interfaces.CRM) {
 		deleteButton := widget.NewButton("Delete", func() {
 			dialog.ShowConfirm("Confirm Delete", "Are you sure you want to delete this CRM entry?", func(confirm bool) {
 				if confirm {
-					err := crud.DeleteCRMEntry(crm.ID, state.GlobalState.Username)
+					err := dw.DeleteCRMEntry(crm.ID, state.GlobalState.Username)
 					if err != nil {
 						dialog.ShowError(err, window)
 						return

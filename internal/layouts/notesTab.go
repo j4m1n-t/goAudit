@@ -1,23 +1,25 @@
 package layouts
 
 import (
+	// Standard Library
 	"errors"
 	"log"
 
+	// Fyne Imports
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
-	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	// Internal Imports
+
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
 
 var notesList *widget.List
-var ldapConn myAuth.LDAPConnection
+var ldapConn interfaces.LDAPConnection
 
 func CreatePlaceholderNotesTab() fyne.CanvasObject {
 	return container.NewVBox(
@@ -119,7 +121,7 @@ func showNoteDialog(window fyne.Window, note *interfaces.Note, appState *state.A
 		log.Printf("Note Title changed to: %v", titleEntry.Text)
 		log.Printf("Note Content changed to: %v", contentEntry.Text)
 		if note == nil {
-			newNote, err := crud.CreateNote(titleEntry.Text, contentEntry.Text, appState.Username, openCheck.Checked)
+			newNote, err := dw.CreateNote(titleEntry.Text, contentEntry.Text, appState.Username, openCheck.Checked)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -129,7 +131,7 @@ func showNoteDialog(window fyne.Window, note *interfaces.Note, appState *state.A
 			note.Title = titleEntry.Text
 			note.Content = contentEntry.Text
 			note.Open = openCheck.Checked
-			updatedNote, err := crud.UpdateNote(*note)
+			updatedNote, err := dw.UpdateNote(*note)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -145,7 +147,7 @@ func showNoteDialog(window fyne.Window, note *interfaces.Note, appState *state.A
 		if note != nil {
 			confirmDialog := dialog.NewConfirm("Confirm Delete", "Are you sure you want to delete this note?", func(confirm bool) {
 				if confirm {
-					err := crud.DeleteNote(note.ID)
+					err := dw.DeleteNote(note.ID)
 					if err != nil {
 						dialog.ShowError(err, window)
 						return
@@ -204,7 +206,7 @@ func performSearch(searchTerm string, window fyne.Window, appState *state.AppSta
 		return
 	}
 
-	searchResults, message, err := crud.SearchNotes(searchTerm, appState.Username)
+	searchResults, message, err := dw.SearchNotes(searchTerm, appState.Username)
 	if err != nil {
 		dialog.ShowError(err, window)
 		return

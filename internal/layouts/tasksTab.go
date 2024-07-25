@@ -1,17 +1,20 @@
 package layouts
 
 import (
+	// Standard Library
 	"fmt"
 	"strconv"
 	"time"
 
+	// Fyne Imports
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	// Internal Imports
+
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
@@ -114,7 +117,7 @@ func showTaskDialog(window fyne.Window, task *interfaces.Tasks) {
 				Completed:   completedCheck.Checked,
 				Username:    state.GlobalState.Username,
 			}
-			_, err := crud.CreateTask(newTask)
+			_, err := dw.CreateTask(newTask)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -126,7 +129,7 @@ func showTaskDialog(window fyne.Window, task *interfaces.Tasks) {
 			task.Priority = priority
 			task.DueDate = dueDate
 			task.Completed = completedCheck.Checked
-			_, err := crud.UpdateTask(*task)
+			_, err := dw.UpdateTask(*task)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -142,7 +145,7 @@ func showTaskDialog(window fyne.Window, task *interfaces.Tasks) {
 		deleteButton := widget.NewButton("Delete", func() {
 			dialog.ShowConfirm("Confirm Delete", "Are you sure you want to delete this task?", func(confirm bool) {
 				if confirm {
-					err := crud.DeleteTask(task.ID, state.GlobalState.Username)
+					err := dw.DeleteTask(task.ID, state.GlobalState.Username)
 					if err != nil {
 						dialog.ShowError(err, window)
 						return

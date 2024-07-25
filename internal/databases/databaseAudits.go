@@ -1,11 +1,13 @@
 package databases
 
 import (
+	// Standard Library
 	"context"
 	"fmt"
 	"log"
 	"time"
 
+	// Internal Imports
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
@@ -37,7 +39,7 @@ func EnsureAuditTableExists() error {
 	return nil
 }
 
-func CreateAudit(audit interfaces.Audits) (interfaces.Audits, error) {
+func (dw *DatabaseWrapper) CreateAudit(audit interfaces.Audits) (interfaces.Audits, error) {
 	query := `INSERT INTO audits (action, audit_id, audit_type, audit_area, notes, assigned_user, completed, user_id, username, additional_users, firm)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
               RETURNING id, created_at, updated_at`
@@ -90,7 +92,7 @@ func (dw *DatabaseWrapper) GetAudits(username string) ([]interfaces.Audits, stri
 	return audits, "Audits fetched successfully", nil
 }
 
-func UpdateAudit(audit interfaces.Audits) (interfaces.Audits, error) {
+func (dw *DatabaseWrapper) UpdateAudit(audit interfaces.Audits) (interfaces.Audits, error) {
 	query := `UPDATE audits SET action=$1, audit_id=$2, audit_type=$3, audit_area=$4, notes=$5, assigned_user=$6,
               completed_at=$7, completed=$8, additional_users=$9, firm=$10, updated_at=$11
               WHERE id=$12 RETURNING id, created_at, updated_at`
@@ -107,7 +109,7 @@ func UpdateAudit(audit interfaces.Audits) (interfaces.Audits, error) {
 	return audit, nil
 }
 
-func DeleteAudit(id int, username string) error {
+func (dw *DatabaseWrapper) DeleteAudit(id int, username string) error {
 	query := `DELETE FROM audits WHERE id=$1 AND username=$2`
 	_, err := DBPool.Exec(context.Background(), query, id, username)
 	return err

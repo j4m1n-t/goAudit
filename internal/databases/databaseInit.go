@@ -1,18 +1,36 @@
 package databases
 
 import (
+	// Standard Library
 	"context"
 	"fmt"
 	"log"
 	"os"
 
+	// External Imports
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	// Internal Imports
+	"github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
 var DBPool *pgxpool.Pool
 
+type LDAPWrapper struct{}
+
 type DatabaseWrapper struct {
 	Pool *pgxpool.Pool
+}
+type Auth struct {
+	DB   interfaces.DatabaseOperations
+	LDAP interfaces.LDAPOperations
+}
+
+func NewAuth(db interfaces.DatabaseOperations, ldap interfaces.LDAPOperations) *Auth {
+	return &Auth{
+		DB:   db,
+		LDAP: ldap,
+	}
 }
 
 type SQLSettings struct {
@@ -53,6 +71,8 @@ func InitDB() (*DatabaseWrapper, error) {
 	log.Println("Successfully connected to the database.")
 
 	dbWrapper := &DatabaseWrapper{Pool: DBPool}
+
+	// Now you can use auth for both database and LDAP operations
 
 	return dbWrapper, nil
 }

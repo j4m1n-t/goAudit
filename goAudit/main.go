@@ -20,7 +20,9 @@ import (
 	"github.com/joho/godotenv"
 
 	// Internal Imports
+
 	myAuth "github.com/j4m1n-t/goAudit/internal/authentication"
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
 	myFunctions "github.com/j4m1n-t/goAudit/internal/functions"
 	myLayout "github.com/j4m1n-t/goAudit/internal/layouts"
 	state "github.com/j4m1n-t/goAudit/internal/status"
@@ -77,6 +79,7 @@ var (
 	crmTab         fyne.CanvasObject
 	notesTab       fyne.CanvasObject
 	tasksTab       fyne.CanvasObject
+	appState       *state.AppState
 )
 
 func main() {
@@ -96,12 +99,18 @@ func main() {
 	configPath = filepath.Join(configDir, "goAudit", "config.json")
 	// Initialize connection to db server(s)
 	myFunctions.InitDBs()
+	// Initialize authentication
+	dbInstance := &crud.DatabaseWrapper{}
+	ldapInstance := &myAuth.LDAPWrapper{}
+	authInstance := myAuth.NewAuth(dbInstance, ldapInstance)
 	// Set the default app layout
 	myApp := app.New()
 	myWindow := myApp.NewWindow("goAudit")
 	myWindow.SetTitle("goAudit")
 	myWindow.Resize(fyne.NewSize(800, 700))
 	myWindow.SetPadded(true)
+	// Assign the window to the AppState
+	state.GlobalState.SetWindow(myWindow)
 	// Icons and mutible items
 
 	// Menu Items
@@ -131,7 +140,7 @@ func main() {
 		os.Exit(0)
 	})
 	LogoutItem := fyne.NewMenuItem("Logout", func() {
-		myAuth.LogoutUser(state.GlobalState.LDAPConn)
+		ldapInstance.LogoutUser(state.GlobalState.LDAPConn)
 	})
 	SettingsMenu := fyne.NewMenu("Settings")
 	ThemeItem := fyne.NewMenuItem("Toggle Theme", func() { toggleTheme(myApp) })
@@ -152,7 +161,7 @@ func main() {
 		},
 		OnSubmit: func() {
 			var err error
-			state.GlobalState.LDAPConn, err = myAuth.ConnectToAdServer(username.Text, password.Text)
+			state.GlobalState.LDAPConn, err = authInstance.LDAP.ConnectToAdServer(username.Text, password.Text)
 			if err != nil {
 				dialog.ShowError(err, myWindow)
 				fyne.LogError("Error connecting to LDAP server.", err)
@@ -168,7 +177,7 @@ func main() {
 			log.Printf("Notes fetched for user: %s: %+v", state.GlobalState.Username, state.GlobalState.Notes)
 			// need to update to include appstate
 			isAdmin := myFunctions.CheckIfAdmin(state.GlobalState.LDAPConn, username.Text)
-			myFunctions.UpdateTabsForUser(isAdmin, myWindow)
+			myFunctions.UpdateTabsForUser(isAdmin, myWindow, appState)
 			myFunctions.UpdateMenuForUser(isAdmin, myWindow)
 			tabs.SelectIndex(1)
 		},

@@ -1,14 +1,54 @@
 package interfaces
 
-import "time"
+import (
+	// Standard Library
+	"sync"
+	"time"
+
+	// External Imports
+	"github.com/go-ldap/ldap/v3"
+)
+
+// Database Interface
 
 type DatabaseOperations interface {
+	// Users
 	GetUsers(username string) ([]Users, string, error)
+	GetOrCreateUser(username string) (Users, error)
+	GetAll() ([]Users, error)
+	Update(user Users) (Users, error)
+	Delete(user Users) error
+	// Notes
+	GetNote(id int) (Note, error)
 	GetNotes(username string) ([]Note, string, error)
+	UpdateNote(note Note) (Note, error)
+	DeleteNote(id int) error
+	CreateNote(title, content string, username string, open bool) (Note, error)
+	SearchNotes(searchTerm string, username string) ([]Note, string, error)
+	// Tasks
 	GetTasks(username string) ([]Tasks, string, error)
+	CreateTask(task Tasks) (Tasks, error)
+	UpdateTask(task Tasks) (Tasks, error)
+	DeleteTask(id int, username string) error
+	// Audits
 	GetAudits(username string) ([]Audits, string, error)
+	DeleteAudit(id int, username string) error
+	UpdateAudit(audit Audits) (Audits, error)
+	CreateAudit(audit Audits) (Audits, error)
+	// CRM
 	GetCRMEntries(username string) ([]CRM, string, error)
+	DeleteCRMEntry(id int, username string) error
+	UpdateCRMEntry(crm CRM) (CRM, error)
+	CreateCRMEntry(crm CRM) (CRM, error)
+	// Credentials
 	GetCredentials(username string) ([]Credentials, string, error)
+	GetCredentialByLoginName(loginName string) ([]Credentials, error)
+	CreateCredential(credential Credentials) (Credentials, error)
+	UpdateCredential(credential Credentials) (Credentials, error)
+	DeleteCredential(id int, owner string) error
+	SearchCredentials(searchTerm, owner string) ([]Credentials, string, error)
+	CreateCredUser(username string, hashedPassword string, email string) (*Credentials, error)
+	GetUserPassword(username string) (string, error)
 }
 
 type Note struct {
@@ -71,18 +111,21 @@ type CRM struct {
 }
 
 type Credentials struct {
-	ID             int       `json:"id"`
-	Site           string    `json:"site"`
-	Program        string    `json:"program"`
-	UserID         int       `json:"-"`
-	Username       string    `json:"username"`
-	MasterPassword string    `json:"master_password"`
-	LoginName      string    `json:"login_name"`
-	LoginPass      string    `json:"login_pass"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	Owner          string    `json:"owner"`
+	ID              int       `json:"id"`
+	Site            string    `json:"site"`
+	Program         string    `json:"program"`
+	UserID          int       `json:"-"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	MasterPassword  string    `json:"master_password"`
+	LoginName       string    `json:"login_name"`
+	LoginPass       string    `json:"login_pass"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	Owner           string    `json:"owner"`
+	PasswordHistory []string  `json:"password_history"`
 }
+
 type Users struct {
 	ID        int       `json:"id"`
 	UserID    int       `json:"-"`
@@ -93,4 +136,39 @@ type Users struct {
 	LastLogin time.Time `json:"last_login"`
 	Email     string    `json:"email"`
 	Status    string    `json:"status"`
+}
+
+// LDAP Interface
+
+type LDAPConnection struct {
+	Conn     *ldap.Conn
+	Username string
+	Password string
+	Server   string
+	Domain   string
+}
+
+type LDAPUser struct {
+	DN       string
+	Username string
+}
+type CredentialAuth struct {
+	IsAuthenticated bool
+	Username        string
+}
+
+var (
+	credentialAuth     CredentialAuth
+	credentialAuthLock sync.RWMutex
+)
+
+type LDAPOperations interface {
+	// LDAPOperations
+	ConnectToAdServer(username, password string) (*LDAPConnection, error)
+	LogoutUser(c *LDAPConnection) error
+	DomaintoOU(domain string) string
+	IsProperDomain(domain string) bool
+	OUwithDomain(ou string, domain string) string
+	// Master Password Operations
+	VerifyCredentialAccess(loginName, loginPass string) error
 }

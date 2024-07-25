@@ -1,11 +1,13 @@
 package databases
 
 import (
+	// Standard Library
 	"context"
 	"fmt"
 	"log"
 	"time"
 
+	// Internal Imports
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
@@ -62,8 +64,8 @@ func EnsureNotesTableExists() error {
 	return nil
 }
 
-func CreateNote(title, content string, username string, open bool) (interfaces.Note, error) {
-	User, err := GetOrCreateUser(username)
+func (dw *DatabaseWrapper) CreateNote(title, content string, username string, open bool) (interfaces.Note, error) {
+	User, err := dw.GetOrCreateUser(username)
 	if err != nil {
 		log.Printf("Error creating user: %v", err)
 		return interfaces.Note{}, err
@@ -130,7 +132,7 @@ func (dw *DatabaseWrapper) GetNotes(username string) ([]interfaces.Note, string,
 	return notes, "Notes fetched successfully", nil
 }
 
-func GetNote(id int) (interfaces.Note, error) {
+func (dw *DatabaseWrapper) GetNote(id int) (interfaces.Note, error) {
 	var note interfaces.Note
 	query := `SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, 
               notes.user_id, users.username, users.email
@@ -145,7 +147,7 @@ func GetNote(id int) (interfaces.Note, error) {
 	return note, nil
 }
 
-func UpdateNote(note interfaces.Note) (interfaces.Note, error) {
+func (dw *DatabaseWrapper) UpdateNote(note interfaces.Note) (interfaces.Note, error) {
 	query := `UPDATE notes SET title=$1, content=$2, updated_at=$3, open=$4 WHERE id=$5 RETURNING id, created_at, updated_at`
 	err := DBPool.QueryRow(context.Background(), query, note.Title, note.Content, time.Now(), note.Open, note.ID).
 		Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
@@ -156,7 +158,7 @@ func UpdateNote(note interfaces.Note) (interfaces.Note, error) {
 	return note, nil
 }
 
-func DeleteNote(id int) error {
+func (dw *DatabaseWrapper) DeleteNote(id int) error {
 	query := `DELETE FROM notes WHERE id=$1`
 	_, err := DBPool.Exec(context.Background(), query, id)
 	if err != nil {
@@ -167,7 +169,7 @@ func DeleteNote(id int) error {
 	return nil
 }
 
-func SearchNotes(searchTerm string, username string) ([]interfaces.Note, string, error) {
+func (dw *DatabaseWrapper) SearchNotes(searchTerm string, username string) ([]interfaces.Note, string, error) {
 	var notes []interfaces.Note
 	query := `
     SELECT notes.id, notes.title, notes.content, notes.created_at, notes.updated_at, notes.user_id, users.username, notes.open, notes.author

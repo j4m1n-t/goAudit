@@ -1,11 +1,13 @@
 package databases
 
 import (
+	// Standard Library
 	"context"
 	"fmt"
 	"log"
 	"time"
 
+	// Internal Imports
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
@@ -33,7 +35,7 @@ func EnsureCRMTableExists() error {
 	return nil
 }
 
-func CreateCRMEntry(crm interfaces.CRM) (interfaces.CRM, error) {
+func (dw *DatabaseWrapper) CreateCRMEntry(crm interfaces.CRM) (interfaces.CRM, error) {
 	query := `INSERT INTO crm (name, email, phone, company, notes, user_id, username, open)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
               RETURNING id, created_at, updated_at`
@@ -84,7 +86,7 @@ func (dw *DatabaseWrapper) GetCRMEntries(username string) ([]interfaces.CRM, str
 	return crmEntries, "CRM entries fetched successfully", nil
 }
 
-func UpdateCRMEntry(crm interfaces.CRM) (interfaces.CRM, error) {
+func (dw *DatabaseWrapper) UpdateCRMEntry(crm interfaces.CRM) (interfaces.CRM, error) {
 	query := `UPDATE crm SET name=$1, email=$2, phone=$3, company=$4, notes=$5, open=$6, updated_at=$7
               WHERE id=$8 RETURNING id, created_at, updated_at`
 
@@ -99,7 +101,7 @@ func UpdateCRMEntry(crm interfaces.CRM) (interfaces.CRM, error) {
 	return crm, nil
 }
 
-func DeleteCRMEntry(id int, username string) error {
+func (dw *DatabaseWrapper) DeleteCRMEntry(id int, username string) error {
 	query := `DELETE FROM crm WHERE id=$1 AND username=$2`
 	_, err := DBPool.Exec(context.Background(), query, id, username)
 	return err

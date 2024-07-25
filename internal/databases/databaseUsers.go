@@ -1,13 +1,17 @@
 package databases
 
 import (
+	// Standard Library
 	"context"
 	"fmt"
 	"math/rand"
 	"time"
 
-	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
+	//External Imports
 	"github.com/jackc/pgx"
+
+	// Internal Imports
+	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
 func GetUserByAnyID(identifier interface{}) (interfaces.Users, error) {
@@ -93,7 +97,7 @@ func Create(username, email, status string, userID int, createdAt, updatedAt, la
 	return userItem, nil
 }
 
-func GetOrCreateUser(username string) (interfaces.Users, error) {
+func (dw *DatabaseWrapper)GetOrCreateUser(username string) (interfaces.Users, error) {
 	user, err := GetUserByAnyID(username)
 	if err != nil {
 		// User not found, create a new one
@@ -113,7 +117,7 @@ func GetOrCreateUser(username string) (interfaces.Users, error) {
 	return user, nil
 }
 
-func (dw DatabaseWrapper) GetUsers(username string) ([]interfaces.Users, string, error) {
+func (dw *DatabaseWrapper) GetUsers(username string) ([]interfaces.Users, string, error) {
 	var users []interfaces.Users
 	user, err := GetUserByAnyID(username)
 	if err != nil {
@@ -134,7 +138,7 @@ func generateUserID() int {
 	return userID
 }
 
-func GetAll() ([]interfaces.Users, error) {
+func (dw *DatabaseWrapper) GetAll() ([]interfaces.Users, error) {
 	if DBPool == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
@@ -171,7 +175,7 @@ func Get(id int) (interfaces.Users, error) {
 	return user, nil
 }
 
-func Update(user interfaces.Users) (interfaces.Users, error) {
+func (dw *DatabaseWrapper) Update(user interfaces.Users) (interfaces.Users, error) {
 	query := `UPDATE users SET username=$1, user_id=$2, email=$3, status=$4, updated_at=$5, last_login=$6 
               WHERE id=$7 RETURNING id, created_at, updated_at`
 	err := DBPool.QueryRow(context.Background(), query,
@@ -183,7 +187,7 @@ func Update(user interfaces.Users) (interfaces.Users, error) {
 	return user, nil
 }
 
-func Delete(user interfaces.Users) error {
+func (dw *DatabaseWrapper) Delete(user interfaces.Users) error {
 	query := `DELETE FROM users WHERE id=$1 AND user_id=$2`
 	_, err := DBPool.Exec(context.Background(), query, user.ID, user.UserID)
 	return err

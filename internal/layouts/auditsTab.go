@@ -1,16 +1,19 @@
 package layouts
 
 import (
+	// Standard Library
 	"fmt"
 	"time"
 
+	// Fyne Imports
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	crud "github.com/j4m1n-t/goAudit/internal/databases"
+	// Internal Imports
+
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
@@ -111,7 +114,7 @@ func showAuditDialog(window fyne.Window, audit *interfaces.Audits) {
 				Completed:    completedCheck.Checked,
 				Username:     state.GlobalState.Username,
 			}
-			_, err := crud.CreateAudit(newAudit)
+			_, err := dw.CreateAudit(newAudit)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -127,7 +130,7 @@ func showAuditDialog(window fyne.Window, audit *interfaces.Audits) {
 			if audit.Completed {
 				audit.CompletedAt = time.Now()
 			}
-			_, err := crud.UpdateAudit(*audit)
+			_, err := dw.UpdateAudit(*audit)
 			if err != nil {
 				dialog.ShowError(err, window)
 				return
@@ -143,7 +146,7 @@ func showAuditDialog(window fyne.Window, audit *interfaces.Audits) {
 		deleteButton := widget.NewButton("Delete", func() {
 			dialog.ShowConfirm("Confirm Delete", "Are you sure you want to delete this audit?", func(confirm bool) {
 				if confirm {
-					err := crud.DeleteAudit(audit.ID, state.GlobalState.Username)
+					err := dw.DeleteAudit(audit.ID, state.GlobalState.Username)
 					if err != nil {
 						dialog.ShowError(err, window)
 						return
