@@ -175,7 +175,7 @@ func main() {
 				return
 			}
 			log.Printf("Notes fetched for user: %s: %+v", state.GlobalState.Username, state.GlobalState.Notes)
-			// need to update to include appstate
+			dbInstance.Create(state.GlobalState.Username)
 			isAdmin := myFunctions.CheckIfAdmin(state.GlobalState.LDAPConn, username.Text)
 			myFunctions.UpdateTabsForUser(isAdmin, myWindow, appState)
 			myFunctions.UpdateMenuForUser(isAdmin, myWindow)

@@ -13,6 +13,7 @@ import (
 
 type DatabaseOperations interface {
 	// Users
+	Create(username string) (Users, error)
 	GetUsers(username string) ([]Users, string, error)
 	GetOrCreateUser(username string) (Users, error)
 	GetAll() ([]Users, error)

@@ -4,12 +4,14 @@ import (
 	// Standard Library
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
 	// Internal Imports
 	interfaces "github.com/j4m1n-t/goAudit/internal/interfaces"
+	"github.com/jackc/pgx"
 	"github.com/lib/pq"
 )
 
@@ -211,18 +213,37 @@ func (dw *DatabaseWrapper) SearchCredentials(searchTerm, owner string) ([]interf
 	return credentials, "Credentials fetched successfully", nil
 }
 func (dw *DatabaseWrapper) CreateCredUser(username, hashedPassword, email string) (*interfaces.Credentials, error) {
-	query := `INSERT INTO credentials (username, master_password, email, created_at, updated_at, user_id)
-              VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-              RETURNING id, username, created_at, updated_at`
-	var cred interfaces.Credentials
-	err := DBPool.QueryRow(context.Background(), query, username, hashedPassword, email).
-		Scan(&cred.ID, &cred.Username, &cred.CreatedAt, &cred.UpdatedAt)
-
+	// Check if the db pool is initialized
+	if dw.Pool == nil {
+		return nil, errors.New("database pool is not initialized")
+	}
+	// First, we need to get the user_id from the users table
+	println(username, email)
+	var userID int
+	userQuery := `SELECT users.user_id FROM users WHERE username = $1`
+	err := dw.Pool.QueryRow(context.Background(), userQuery, username).Scan(&userID)
 	if err != nil {
-		return nil, err
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("no user found with username: %s", username)
+		}
+		return nil, fmt.Errorf("error fetching user: %v", err)
 	}
 
-	return &cred, err
+	// Now we can insert into the credentials table using the user_id
+	query := `INSERT INTO credentials (user_id, username, master_password, email, created_at, updated_at)
+              VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              RETURNING id, username, created_at, updated_at`
+	var cred interfaces.Credentials
+	err = dw.Pool.QueryRow(context.Background(), query, userID, username, hashedPassword, email).
+		Scan(&cred.ID, &cred.Username, &cred.CreatedAt, &cred.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("error creating credential: %v", err)
+	}
+
+	// Set the UserID in the returned credential struct
+	cred.UserID = userID
+
+	return &cred, nil
 }
 
 func (dw *DatabaseWrapper) GetUserPassword(username string) (string, error) {
@@ -231,4 +252,3 @@ func (dw *DatabaseWrapper) GetUserPassword(username string) (string, error) {
 	err := DBPool.QueryRow(context.Background(), query, username).Scan(&hashedPassword)
 	return hashedPassword, err
 }
-

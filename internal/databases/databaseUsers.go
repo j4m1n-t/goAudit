@@ -97,7 +97,33 @@ func Create(username, email, status string, userID int, createdAt, updatedAt, la
 	return userItem, nil
 }
 
-func (dw *DatabaseWrapper)GetOrCreateUser(username string) (interfaces.Users, error) {
+func (dw *DatabaseWrapper) Create(username string) (interfaces.Users, error) {
+	userItem := interfaces.Users{
+		Username: username,
+		Status:   "Active",
+		UserID:   generateUserID(),
+	}
+	query := `INSERT INTO users (username, user_id, status) 
+              VALUES ($1, $2, $3) 
+              ON CONFLICT (user_id) DO UPDATE SET
+              username = EXCLUDED.username,
+              status = EXCLUDED.status,
+              RETURNING id, username, user_id, email, status, created_at, updated_at, last_login`
+
+	err := DBPool.QueryRow(context.Background(), query,
+		userItem.Username, userItem.UserID, userItem.Email, userItem.Status,
+		userItem.CreatedAt, userItem.UpdatedAt, userItem.LastLogin).
+		Scan(&userItem.ID, &userItem.Username, &userItem.UserID, &userItem.Email,
+			&userItem.Status, &userItem.CreatedAt, &userItem.UpdatedAt, &userItem.LastLogin)
+
+	if err != nil {
+		return interfaces.Users{}, err
+	}
+
+	return userItem, nil
+}
+
+func (dw *DatabaseWrapper) GetOrCreateUser(username string) (interfaces.Users, error) {
 	user, err := GetUserByAnyID(username)
 	if err != nil {
 		// User not found, create a new one

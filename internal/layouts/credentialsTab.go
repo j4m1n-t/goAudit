@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -27,67 +28,92 @@ func CreatePlaceholderCredentialsTab() fyne.CanvasObject {
 
 func CreateCredentialsTabContent(window fyne.Window) fyne.CanvasObject {
 	var appState *state.AppState
-	if state.GlobalState.UserID == 0 {
-		// Check if the user has a master password set
-		err := auth.CheckIfMPPresent(appState)
-		if err != nil {
-			dialog.ShowError(err, window)
-			return nil
-		}
 
-		// Show the appropriate dialog based on master password presence
+	// Check if user is not logged in
+	if state.GlobalState.UserID == 0 {
+		// User not logged in, show appropriate dialog
 		if state.GlobalState.MPPresent {
 			ShowLoginDialog(window, appState)
 		} else {
 			showSignUpDialog(window)
 		}
-		return nil
-	}
-
-	newCredentialButton := widget.NewButton("New Credential", func() {
-		showCredentialDialog(window, nil)
-	})
-
-	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Search credentials...")
-
-	searchButton := widget.NewButton("Search", func() {
-		searchCredentials(window, searchEntry.Text)
-	})
-
-	credentialsList = widget.NewList(
-		func() int { return len(state.GlobalState.Credentials) },
-		func() fyne.CanvasObject {
-			return container.NewHBox(
-				widget.NewIcon(theme.HomeIcon()),
-				widget.NewLabel("Site"),
-				widget.NewLabel("Username"),
-			)
-		},
-		func(id widget.ListItemID, item fyne.CanvasObject) {
-			if id < len(state.GlobalState.Credentials) {
-				cred := state.GlobalState.Credentials[id]
-				item.(*fyne.Container).Objects[1].(*widget.Label).SetText(cred.Site)
-				item.(*fyne.Container).Objects[2].(*widget.Label).SetText(cred.Username)
-			}
-		},
-	)
-
-	credentialsList.OnSelected = func(id widget.ListItemID) {
-		if id < len(state.GlobalState.Credentials) {
-			showCredentialDialog(window, &state.GlobalState.Credentials[id])
+		// After dialog, recheck if user is now logged in
+		if state.GlobalState.UserID == 0 {
+			return widget.NewLabel("Please log in to view credentials")
 		}
 	}
 
-	return container.NewBorder(
-		container.NewVBox(
-			widget.NewLabel("Credentials"),
-			container.NewHBox(searchEntry, searchButton),
-			newCredentialButton,
-		),
-		nil, nil, nil,
-		credentialsList,
-	)
+	// User is logged in, create credentials content
+	if state.GlobalState.UserID != 0 {
+		newCredentialButton := widget.NewButton("New Credential", func() {
+			showCredentialDialog(window, nil)
+		})
+
+		searchEntry := widget.NewEntry()
+		searchEntry.SetPlaceHolder("Search credentials...")
+		searchEntry.Resize(fyne.NewSize(300, 40))
+
+		searchButton := widget.NewButton("Search", func() {
+			searchCredentials(window, searchEntry.Text)
+		})
+		searchButton.Resize(fyne.NewSize(100, 40))
+
+		searchContainer := container.NewHBox(
+            layout.NewSpacer(),
+            searchEntry,
+            searchButton,
+            layout.NewSpacer(),
+        )
+
+		credentialsList = widget.NewList(
+			func() int { return len(state.GlobalState.Credentials) },
+			func() fyne.CanvasObject {
+				return container.NewHBox(
+					widget.NewIcon(theme.HomeIcon()),
+					widget.NewLabel("Site"),
+					widget.NewLabel("Username"),
+				)
+			},
+			func(id widget.ListItemID, item fyne.CanvasObject) {
+				if id < len(state.GlobalState.Credentials) {
+					cred := state.GlobalState.Credentials[id]
+					item.(*fyne.Container).Objects[1].(*widget.Label).SetText(cred.Site)
+					item.(*fyne.Container).Objects[2].(*widget.Label).SetText(cred.Username)
+				}
+			},
+		)
+
+		credentialsList.OnSelected = func(id widget.ListItemID) {
+			if id < len(state.GlobalState.Credentials) {
+				showCredentialDialog(window, &state.GlobalState.Credentials[id])
+			}
+		}
+        content := container.NewBorder(
+            container.NewVBox(
+                widget.NewLabel("Credentials"),
+                searchContainer,
+                newCredentialButton,
+            ),
+            nil, nil, nil,
+            credentialsList,
+        )
+		updateAllTabs(window)
+		return content
+	} else {
+		return widget.NewLabel("Please log in to view credentials")
+	}
+}
+
+func updateAllTabs(window fyne.Window) {
+    tabs := container.NewAppTabs(
+        container.NewTabItem("Audits", CreateAuditsTabContent(window)),
+        container.NewTabItem("CRM", CreateCRMTabContent(window)),
+        container.NewTabItem("Credentials", CreateCredentialsTabContent(window)),
+        container.NewTabItem("Notes", CreateNotesTabContent(window)),
+        container.NewTabItem("Tasks", CreateTasksTabContent(window)),
+    )
+    tabs.SetTabLocation(container.TabLocationTop)
+    window.SetContent(tabs)
 }
 
 func showCredentialDialog(window fyne.Window, credential *interfaces.Credentials) {
@@ -222,7 +248,7 @@ func ShowLoginDialog(window fyne.Window, appState *state.AppState) {
 	usernameEntry := widget.NewEntry()
 	passwordEntry := widget.NewPasswordEntry()
 
-	dialog.ShowForm("Login", "Login", "Cancel", []*widget.FormItem{
+	dialog.ShowForm("Credentials Login", "Login", "Cancel", []*widget.FormItem{
 		widget.NewFormItem("Username", usernameEntry),
 		widget.NewFormItem("Password", passwordEntry),
 	}, func(res bool) {
@@ -248,6 +274,9 @@ func showSignUpDialog(window fyne.Window) {
 	passwordEntry := widget.NewPasswordEntry()
 	confirmPasswordEntry := widget.NewPasswordEntry()
 	emailEntry := widget.NewEntry()
+
+	// Set Placeholders for the entries
+	usernameEntry.SetPlaceHolder(state.GlobalState.Username)
 
 	// Set the size of the entries
 	usernameEntry.Resize(fyne.NewSize(450, 50))
@@ -292,7 +321,7 @@ func showSignUpDialog(window fyne.Window) {
 	}
 
 	// Show the dialog with the larger form
-	d := dialog.NewCustom("Sign Up", "Cancel", form, window)
+	d := dialog.NewCustom("Credentials Sign Up", "Cancel", form, window)
 	d.Resize(fyne.NewSize(500, 300)) // Set a custom size for the dialog if needed
 	d.Show()
 }

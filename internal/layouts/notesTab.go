@@ -27,7 +27,8 @@ func CreatePlaceholderNotesTab() fyne.CanvasObject {
 	)
 }
 
-func CreateNotesTabContent(window fyne.Window, appState *state.AppState) fyne.CanvasObject {
+func CreateNotesTabContent(window fyne.Window) fyne.CanvasObject {
+	var appState *state.AppState
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Search notes...")
 	searchButton := widget.NewButton("Search", func() {

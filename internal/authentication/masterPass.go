@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	// Internal Imports
+	databases "github.com/j4m1n-t/goAudit/internal/databases"
 	"github.com/j4m1n-t/goAudit/internal/interfaces"
 	state "github.com/j4m1n-t/goAudit/internal/status"
 )
@@ -157,7 +158,7 @@ func CreateCredential(cred *interfaces.Credentials) error {
 // This needs fixed
 func CheckIfMPPresent(appState *state.AppState) error {
 	var count int
-	err := appState.DB.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM credentials WHERE username = $1 AND master_password IS NOT NULL", appState.Username).Scan(&count)
+	err := databases.DBPool.QueryRow(context.Background(), "SELECT COUNT(*) FROM credentials WHERE username = $1 AND master_password IS NOT NULL", appState.Username).Scan(&count)
 	if err != nil {
 		return fmt.Errorf("failed to check master password presence: %v", err)
 	}

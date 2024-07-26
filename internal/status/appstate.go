@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	// Internal Imports
+	crud "github.com/j4m1n-t/goAudit/internal/databases"
 	"github.com/j4m1n-t/goAudit/internal/interfaces"
 )
 
@@ -31,15 +32,16 @@ type AppState struct {
 	CRMEntries           []interfaces.CRM
 	Credentials          []interfaces.Credentials
 	Message              string
-	DB                   interfaces.DatabaseOperations
-	lw                   interfaces.LDAPOperations
-	window               fyne.Window
+	DB                   *crud.DatabaseWrapper
+	//db 					 interfaces.DatabaseOperations
+	lw     interfaces.LDAPOperations
+	window fyne.Window
 }
 
 var GlobalState = &AppState{}
 
 // Global State
-func (appState *AppState) SetDB(db interfaces.DatabaseOperations) {
+func (appState *AppState) SetDB(db *crud.DatabaseWrapper) {
 	if db == nil {
 		log.Fatal("SetDB: Database instance cannot be nil")
 	}
@@ -61,6 +63,10 @@ func (appState *AppState) SetMPPresent() {
 	appState.MPPresent = false
 }
 func (appState *AppState) SetMasterPassword(Username string, password string) error {
+	if appState.DB == nil || appState.DB.Pool == nil {
+		return errors.New("database is not initialized")
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -71,8 +77,9 @@ func (appState *AppState) SetMasterPassword(Username string, password string) er
 	mu.Unlock()
 
 	// Update the database
-	_, err = dbPool.Exec(context.Background(),
-		"UPDATE credentials SET master_password = $1 WHERE user_id = $2",
+
+	_, err = appState.DB.Pool.Exec(context.Background(),
+		"UPDATE credentials SET master_password = $1 WHERE username = $2",
 		hashedPassword, Username)
 	if err != nil {
 		return fmt.Errorf("failed to update master password in database: %v", err)

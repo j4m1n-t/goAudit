@@ -363,10 +363,12 @@ func UpdateTabsForUser(isAdmin bool, window fyne.Window, appState *state.AppStat
 
 	// Create common tab items
 	auditsTab := createTabItem("Audits", layouts.CreateAuditsTabContent)
-	credsTab := createTabItem("Credentials", layouts.CreateCredentialsTabContent)
+	credsTab := createTabItem("Credentials", func(w fyne.Window) fyne.CanvasObject {
+		return layouts.CreateCredentialsTabContent(w)
+	})
 	crmTab := createTabItem("CRM", layouts.CreateCRMTabContent)
 	notesTab := createTabItem("Notes", func(w fyne.Window) fyne.CanvasObject {
-		return layouts.CreateNotesTabContent(w, state.GlobalState)
+		return layouts.CreateNotesTabContent(w)
 	})
 	tasksTab := createTabItem("Tasks", layouts.CreateTasksTabContent)
 
